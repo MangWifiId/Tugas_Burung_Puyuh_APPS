@@ -1,0 +1,332 @@
+{
+  "users": [
+    {
+      "id": "55dff13a-21e3-47ae-bc10-b3d20dacc817",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "name": "Pemilik Peternakan",
+      "email": "owner@puyuh.com",
+      "role": "owner",
+      "is_active": true
+    }
+  ],
+  "farms": [
+    {
+      "id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "FARM01",
+      "name": "Peternakan Puyuh Barokah",
+      "address": "Jl. Peternakan Mandiri No. 12, Jawa Barat",
+      "phone": "081234567890",
+      "is_active": true
+    }
+  ],
+  "coops": [
+    {
+      "id": "adb3e5c7-b8fa-4f6e-b27b-ee60bf87561c",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "farm": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "address": "",
+        "phone": "",
+        "is_active": false
+      },
+      "code": "KND-01",
+      "name": "Kandang A1 (Layer)",
+      "capacity": 1500,
+      "status": "active",
+      "notes": "Kandang utama puyuh petelur masa produksi"
+    },
+    {
+      "id": "e261d0ef-a252-46c1-8971-2e39ec65978a",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "farm": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "address": "",
+        "phone": "",
+        "is_active": false
+      },
+      "code": "KND-02",
+      "name": "Kandang A2 (Grower)",
+      "capacity": 1200,
+      "status": "active",
+      "notes": "Kandang pembesaran"
+    }
+  ],
+  "units": [
+    {
+      "id": "2324a98e-889f-43c9-8fcf-70df5178130e",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "BTR",
+      "name": "Butir",
+      "is_base_unit": true
+    },
+    {
+      "id": "fcae14b6-b932-4928-b1bb-487928c2bbb1",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "RAK",
+      "name": "Rak / Tray (30 butir)",
+      "is_base_unit": false
+    },
+    {
+      "id": "783048ae-597f-4eeb-8bb1-d634a06bbfee",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "KG",
+      "name": "Kilogram",
+      "is_base_unit": true
+    },
+    {
+      "id": "f61fae42-9c68-4436-8288-dabdc17ff0cf",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "KRG",
+      "name": "Karung (50 kg)",
+      "is_base_unit": false
+    },
+    {
+      "id": "606dc5d0-2085-40a0-ba90-3a01f3eb2f46",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "BTL",
+      "name": "Botol",
+      "is_base_unit": true
+    },
+    {
+      "id": "836040bf-1241-4b32-9b52-ece1245f4680",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "LTR",
+      "name": "Liter",
+      "is_base_unit": true
+    },
+    {
+      "id": "7f698905-de6d-4de1-b8be-8cef0600433f",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "code": "EKR",
+      "name": "Ekor",
+      "is_base_unit": true
+    }
+  ],
+  "products": [
+    {
+      "id": "87161dad-1b45-4834-b8a2-1845eda6e825",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "farm": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "address": "",
+        "phone": "",
+        "is_active": false
+      },
+      "sku": "TLR-01",
+      "name": "Telur Puyuh Segar Layak Jual",
+      "category": "egg",
+      "default_unit_id": "2324a98e-889f-43c9-8fcf-70df5178130e",
+      "default_unit": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "is_base_unit": false
+      },
+      "min_stock_alert": "300",
+      "is_active": true,
+      "description": "Telur puyuh segar panen harian siap distribusi"
+    },
+    {
+      "id": "b3f0f101-b13f-4b1e-9424-a7c4b8e5528d",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "farm": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "address": "",
+        "phone": "",
+        "is_active": false
+      },
+      "sku": "PKN-01",
+      "name": "Pakan Puyuh Petelur Super (Layer Feed)",
+      "category": "feed",
+      "default_unit_id": "783048ae-597f-4eeb-8bb1-d634a06bbfee",
+      "default_unit": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "is_base_unit": false
+      },
+      "min_stock_alert": "100",
+      "is_active": true,
+      "description": "Pakan konsentrat puyuh petelur kadar protein 20%"
+    }
+  ],
+  "conversions": [
+    {
+      "id": "b55d7586-bdb7-42e0-b8fe-a7a260d8fbd9",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "product_id": "87161dad-1b45-4834-b8a2-1845eda6e825",
+      "product": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "farm_id": "00000000-0000-0000-0000-000000000000",
+        "farm": {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "created_at": "0001-01-01T00:00:00Z",
+          "updated_at": "0001-01-01T00:00:00Z",
+          "code": "",
+          "name": "",
+          "address": "",
+          "phone": "",
+          "is_active": false
+        },
+        "sku": "",
+        "name": "",
+        "category": "",
+        "default_unit_id": "00000000-0000-0000-0000-000000000000",
+        "default_unit": {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "created_at": "0001-01-01T00:00:00Z",
+          "updated_at": "0001-01-01T00:00:00Z",
+          "code": "",
+          "name": "",
+          "is_base_unit": false
+        },
+        "min_stock_alert": "0",
+        "is_active": false,
+        "description": ""
+      },
+      "from_unit_id": "fcae14b6-b932-4928-b1bb-487928c2bbb1",
+      "from_unit": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "is_base_unit": false
+      },
+      "to_unit_id": "2324a98e-889f-43c9-8fcf-70df5178130e",
+      "to_unit": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "is_base_unit": false
+      },
+      "multiplier": "30"
+    }
+  ],
+  "customers": [
+    {
+      "id": "fb386e4e-f41f-4cdc-8cb4-dc9dab2e72e4",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "farm": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "address": "",
+        "phone": "",
+        "is_active": false
+      },
+      "code": "CUST-01",
+      "name": "Toko Berkah Telur (Pak Haji Joko)",
+      "phone": "081399887766",
+      "email": "berkah.telur@gmail.com",
+      "address": "Pasar Induk Kramat Jati, Kios B-12",
+      "payment_terms_days": 7,
+      "is_active": true
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "1d3808d5-c9d9-480e-89e8-2b40b07b4230",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "farm": {
+        "id": "00000000-0000-0000-0000-000000000000",
+        "created_at": "0001-01-01T00:00:00Z",
+        "updated_at": "0001-01-01T00:00:00Z",
+        "code": "",
+        "name": "",
+        "address": "",
+        "phone": "",
+        "is_active": false
+      },
+      "code": "SUPP-01",
+      "name": "PT Pakan Ternak Nusantara",
+      "phone": "081122334455",
+      "email": "sales@pakannusantara.co.id",
+      "address": "Kawasan Industri Jababeka, Cikarang",
+      "payment_terms_days": 14,
+      "is_active": true
+    }
+  ],
+  "flocks": null,
+  "flock_placements": null,
+  "flock_movements": null,
+  "production_records": null,
+  "inventory_movements": null,
+  "feed_usages": null,
+  "product_prices": null,
+  "sales": null,
+  "purchases": null,
+  "customer_invoices": null,
+  "customer_payments": null,
+  "customer_allocations": null,
+  "supplier_bills": null,
+  "supplier_payments": null,
+  "supplier_allocations": null,
+  "cash_accounts": [
+    {
+      "id": "353b4f29-e182-4803-a1bd-6899228daa97",
+      "created_at": "2026-10-23T04:36:22.4656147Z",
+      "updated_at": "2026-10-23T04:36:22.4656147Z",
+      "farm_id": "cfa58676-4c59-4c9b-ae80-a716a3928f2f",
+      "name": "Kas Utama Kandang",
+      "account_type": "cash",
+      "account_number": "",
+      "initial_balance": "5000000",
+      "current_balance": "5000000",
+      "is_active": true
+    }
+  ],
+  "expenses": null,
+  "cash_transactions": null,
+  "stock_adjustments": null,
+  "audit_logs": null
+}

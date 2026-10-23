@@ -11,6 +11,7 @@ import (
 	"quail-management/backend/internal/database"
 	"quail-management/backend/internal/middleware"
 	"quail-management/backend/internal/response"
+	"quail-management/backend/internal/routes"
 )
 
 func main() {
@@ -20,42 +21,37 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Connect to Database
-	db, err := database.Connect(cfg)
+	// Inisialisasi JSON File Database
+	jdb, err := database.InitJSONDB("data")
 	if err != nil {
-		log.Printf("⚠️ Catatan Database: %v\n", err)
-		log.Println("Aplikasi tetap berjalan dalam mode API scaffolding (pastikan PostgreSQL berjalan untuk transaksi database).")
-	} else {
-		// AutoMigrate database models
-		if err := database.AutoMigrate(db); err != nil {
-			log.Printf("Gagal menjalankan migrasi database: %v\n", err)
-		}
+		log.Fatalf("Gagal inisialisasi basis data JSON: %v", err)
 	}
+	_ = jdb
 
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 	router.Use(middleware.CORSMiddleware(cfg.CORSOrigins))
 
-	// API Root & Health Check
+	// Register API v1 Routes
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/health", func(c *gin.Context) {
-			dbStatus := "connected"
-			if database.DB == nil {
-				dbStatus = "disconnected"
-			}
-			response.JSON(c, http.StatusOK, "Sistem Manajemen Peternakan Puyuh API Aktif", gin.H{
+			response.JSON(c, http.StatusOK, "Sistem Manajemen Peternakan Puyuh API Aktif (JSON Database Mode)", gin.H{
 				"status":    "healthy",
-				"database":  dbStatus,
+				"database":  "json_file_storage",
+				"storage":   "backend/data/database.json",
 				"app_env":   cfg.AppEnv,
 				"version":   "1.0.0",
 			})
 		})
+
+		// Setup route handlers
+		routes.RegisterRoutes(v1, cfg)
 	}
 
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("🚀 Server Backend berjalan di http://localhost%s\n", serverAddr)
+	log.Printf("🚀 Server Backend berjalan di http://localhost%s (Mode: JSON File DB)\n", serverAddr)
 	if err := router.Run(serverAddr); err != nil {
 		log.Fatalf("Gagal menjalankan server: %v", err)
 	}

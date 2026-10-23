@@ -211,6 +211,32 @@ type FeedUsage struct {
 	RecordedBy *uuid.UUID      `gorm:"type:uuid" json:"recorded_by,omitempty"`
 }
 
+// StockAdjustment represents physical inventory counts (stock opname)
+type StockAdjustment struct {
+	BaseUUIDModel
+	FarmID           uuid.UUID             `gorm:"type:uuid;not null;index" json:"farm_id"`
+	AdjustmentNumber string                `gorm:"size:60;not null;index:idx_stk_adj_num,unique" json:"adjustment_number"`
+	AdjustmentDate   time.Time             `gorm:"type:date;not null;index" json:"adjustment_date"`
+	Status           string                `gorm:"size:30;not null;default:'posted'" json:"status"`
+	Reason           string                `gorm:"type:text;not null" json:"reason"`
+	CreatedBy        *uuid.UUID            `gorm:"type:uuid" json:"created_by,omitempty"`
+	Items            []StockAdjustmentItem `gorm:"foreignKey:AdjustmentID" json:"items,omitempty"`
+}
+
+// StockAdjustmentItem details individual product discrepancies
+type StockAdjustmentItem struct {
+	BaseUUIDModel
+	AdjustmentID  uuid.UUID       `gorm:"type:uuid;not null;index" json:"adjustment_id"`
+	ProductID     uuid.UUID       `gorm:"type:uuid;not null" json:"product_id"`
+	Product       Product         `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+	UnitID        uuid.UUID       `gorm:"type:uuid;not null" json:"unit_id"`
+	Unit          Unit            `gorm:"foreignKey:UnitID" json:"unit,omitempty"`
+	SystemQty     decimal.Decimal `gorm:"type:numeric(12,3);not null" json:"system_qty"`
+	ActualQty     decimal.Decimal `gorm:"type:numeric(12,3);not null" json:"actual_qty"`
+	DifferenceQty decimal.Decimal `gorm:"type:numeric(12,3);not null" json:"difference_qty"`
+	Notes         string          `gorm:"type:text" json:"notes"`
+}
+
 // ProductPrice records price masters and validity date range
 type ProductPrice struct {
 	BaseUUIDModel
