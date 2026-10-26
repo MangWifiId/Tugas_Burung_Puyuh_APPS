@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -18,6 +19,13 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 	var dsn string
 	if cfg.DatabaseURL != "" {
 		dsn = cfg.DatabaseURL
+		if !strings.Contains(dsn, "sslmode=") {
+			if strings.Contains(dsn, "?") {
+				dsn += "&sslmode=require"
+			} else {
+				dsn += "?sslmode=require"
+			}
+		}
 	} else {
 		dsn = fmt.Sprintf(
 			"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=Asia/Jakarta",
@@ -25,12 +33,13 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 		)
 	}
 
-	gormLogger := logger.Default.LogMode(logger.Info)
-	if cfg.AppEnv == "production" {
-		gormLogger = logger.Default.LogMode(logger.Warn)
-	}
+	gormLogger := logger.Default.LogMode(logger.Warn)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	// PreferSimpleProtocol: true penting untuk koneksi pooler Supabase (pgbouncer)
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{
 		Logger: gormLogger,
 		NowFunc: func() time.Time {
 			return time.Now().UTC()

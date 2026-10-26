@@ -28,7 +28,7 @@ type User struct {
 	BaseUUIDModel
 	Name         string `gorm:"size:150;not null" json:"name"`
 	Email        string `gorm:"size:150;uniqueIndex;not null" json:"email"`
-	PasswordHash string `gorm:"size:255;not null" json:"-"`
+	PasswordHash string `gorm:"size:255;not null" json:"password_hash,omitempty"`
 	Role         string `gorm:"size:50;not null;default:'owner'" json:"role"` // 'owner', 'staff', 'admin'
 	IsActive     bool   `gorm:"not null;default:true" json:"is_active"`
 }

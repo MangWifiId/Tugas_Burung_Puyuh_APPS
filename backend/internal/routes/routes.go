@@ -20,6 +20,7 @@ func RegisterRoutes(rg *gin.RouterGroup, cfg *config.Config) {
 	purchH := handlers.NewPurchasingHandler()
 	finH := handlers.NewFinanceHandler()
 	dashH := handlers.NewDashboardHandler()
+	analyticsH := handlers.NewAnalyticsHandler()
 
 	// Public Routes
 	authGroup := rg.Group("/auth")
@@ -64,6 +65,7 @@ func RegisterRoutes(rg *gin.RouterGroup, cfg *config.Config) {
 		protected.GET("/inventory/movements", invH.ListMovements)
 		protected.POST("/inventory/feed-usage", invH.RecordFeedUsage)
 		protected.POST("/inventory/adjustments", invH.RecordAdjustment)
+		protected.POST("/inventory/stock-in", invH.RecordStockIn)
 
 		// Manajemen Harga
 		protected.GET("/prices", priceH.ListPrices)
@@ -92,5 +94,6 @@ func RegisterRoutes(rg *gin.RouterGroup, cfg *config.Config) {
 		// Dashboard & Laporan
 		protected.GET("/dashboard/summary", dashH.GetSummary)
 		protected.GET("/reports/production-trends", dashH.GetProductionTrends)
+		protected.GET("/analytics/performance", analyticsH.GetPerformanceAnalytics)
 	}
 }

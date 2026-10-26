@@ -28,6 +28,32 @@ func main() {
 	}
 	_ = jdb
 
+	// Cek dan sambungkan ke database PostgreSQL jika dikonfigurasi
+	dbMode := "json_file_storage"
+	dbDetail := "backend/data/database.json"
+
+	if cfg.DatabaseURL != "" || (cfg.DBHost != "" && cfg.DBHost != "localhost") {
+		gormDB, err := database.Connect(cfg)
+		if err != nil {
+			log.Printf("ℹ️ PostgreSQL belum dapat terhubung (%v). Menggunakan JSON File DB sebagai fallback.\n", err)
+		} else {
+			log.Println("✓ Berhasil terhubung ke database PostgreSQL!")
+			if err := database.AutoMigrate(gormDB); err != nil {
+				log.Printf("⚠️ Gagal migrasi skema PostgreSQL: %v\n", err)
+			} else {
+				// Sinkronkan seluruh data ke PostgreSQL
+				_ = database.SyncDataToPostgres(gormDB, jdb)
+			}
+			dbMode = "postgresql"
+			dbDetail = "PostgreSQL Database Connected & Synchronized"
+			if cfg.DatabaseURL != "" {
+				dbDetail = "PostgreSQL Cloud (Connected via DATABASE_URL)"
+			}
+		}
+	} else if cfg.DatabaseURL != "" {
+		log.Println("DATABASE_URL ditemukan di konfigurasi.")
+	}
+
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
@@ -37,10 +63,10 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		v1.GET("/health", func(c *gin.Context) {
-			response.JSON(c, http.StatusOK, "Sistem Manajemen Peternakan Puyuh API Aktif (JSON Database Mode)", gin.H{
+			response.JSON(c, http.StatusOK, "Sistem Manajemen Peternakan Puyuh API Aktif", gin.H{
 				"status":    "healthy",
-				"database":  "json_file_storage",
-				"storage":   "backend/data/database.json",
+				"database":  dbMode,
+				"detail":    dbDetail,
 				"app_env":   cfg.AppEnv,
 				"version":   "1.0.0",
 			})
@@ -51,7 +77,7 @@ func main() {
 	}
 
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("🚀 Server Backend berjalan di http://localhost%s (Mode: JSON File DB)\n", serverAddr)
+	log.Printf("🚀 Server Backend berjalan di http://localhost%s (Mode Basis Data: %s)\n", serverAddr, dbMode)
 	if err := router.Run(serverAddr); err != nil {
 		log.Fatalf("Gagal menjalankan server: %v", err)
 	}

@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Truck,
   Wallet,
+  TrendingUp,
   X,
 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/analytics', label: 'Analisis & FCR', icon: TrendingUp },
   { to: '/coops-flocks', label: 'Kandang & Populasi', icon: Home },
   { to: '/production', label: 'Produksi Telur', icon: Egg },
   { to: '/inventory', label: 'Pakan & Persediaan', icon: Package },

@@ -191,6 +191,13 @@ export const Dashboard: React.FC = () => {
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">Grafik hasil telur layak jual harian</p>
             </div>
+            <Link
+              to="/analytics"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200 transition-colors"
+            >
+              <span>Analisis & FCR</span>
+              <ArrowUpRight size={14} />
+            </Link>
           </div>
 
           <div className="h-64 sm:h-72 w-full">

@@ -78,6 +78,26 @@ func InitJSONDB(dataDir string) (*JSONDatabase, error) {
 		}
 	}
 
+	if len(jdb.Flocks) == 0 && len(jdb.Farms) > 0 && len(jdb.Coops) >= 2 {
+		jdb.seedSampleFlocksAndRecords()
+		_ = jdb.persist()
+	}
+
+	// Pastikan user memiliki password hash bawaan (password123)
+	needsPersist := false
+	for i := range jdb.Users {
+		if jdb.Users[i].PasswordHash == "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+			if err == nil {
+				jdb.Users[i].PasswordHash = string(hash)
+				needsPersist = true
+			}
+		}
+	}
+	if needsPersist {
+		_ = jdb.persist()
+	}
+
 	DBInstance = jdb
 	log.Println("✓ Berhasil memuat JSON File Database:", filePath)
 	return jdb, nil
@@ -109,7 +129,15 @@ func (db *JSONDatabase) persist() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(db.filePath, data, 0644)
+	if err := os.WriteFile(db.filePath, data, 0644); err != nil {
+		return err
+	}
+	if DB != nil {
+		go func() {
+			_ = SyncDataToPostgres(DB, db)
+		}()
+	}
+	return nil
 }
 
 func (db *JSONDatabase) seedDefaults() {
@@ -255,4 +283,248 @@ func (db *JSONDatabase) seedDefaults() {
 		PaymentTermsDays: 14,
 		IsActive:         true,
 	})
+
+	db.seedSampleFlocksAndRecords()
+}
+
+func (db *JSONDatabase) seedSampleFlocksAndRecords() {
+	now := time.Now().UTC()
+	if len(db.Farms) == 0 || len(db.Coops) < 2 {
+		return
+	}
+
+	farmID := db.Farms[0].ID
+	coopA1 := db.Coops[0]
+	coopA2 := db.Coops[1]
+
+	var eggProduct *models.Product
+	var feedProduct *models.Product
+	for _, p := range db.Products {
+		if p.Category == "egg" && eggProduct == nil {
+			pCopy := p
+			eggProduct = &pCopy
+		} else if p.Category == "feed" && feedProduct == nil {
+			pCopy := p
+			feedProduct = &pCopy
+		}
+	}
+
+	// 1. Tambah Master Harga
+	if eggProduct != nil {
+		db.ProductPrices = append(db.ProductPrices, models.ProductPrice{
+			BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
+			ProductID:     eggProduct.ID,
+			UnitID:        eggProduct.DefaultUnitID,
+			PriceType:     "sell",
+			Price:         decimal.NewFromInt(450),
+			ValidFrom:     now.AddDate(0, -1, 0),
+			Notes:         "Harga jual standar eceran per butir",
+		})
+	}
+
+	if feedProduct != nil {
+		db.ProductPrices = append(db.ProductPrices, models.ProductPrice{
+			BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
+			ProductID:     feedProduct.ID,
+			UnitID:        feedProduct.DefaultUnitID,
+			PriceType:     "buy",
+			Price:         decimal.NewFromInt(7500),
+			ValidFrom:     now.AddDate(0, -1, 0),
+			Notes:         "Harga beli ransum pakan layer super per kg",
+		})
+	}
+
+	// 2. Tambah Stok Awal Persediaan
+	if feedProduct != nil {
+		db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
+			BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
+			FarmID:        farmID,
+			ProductID:     feedProduct.ID,
+			UnitID:        feedProduct.DefaultUnitID,
+			MovementDate:  now.AddDate(0, 0, -15),
+			MovementType:  "purchase_in",
+			Quantity:      decimal.NewFromInt(1200),
+			UnitCost:      decimal.NewFromInt(7500),
+			ReferenceType: "initial_setup",
+			ReferenceID:   uuid.New(),
+			Notes:         "Saldo stok awal pakan 1.200 kg",
+		})
+	}
+
+	// 3. Tambah Flocks (Kelompok Puyuh)
+	flock1ID := uuid.New()
+	flock1 := models.Flock{
+		BaseUUIDModel:   models.BaseUUIDModel{ID: flock1ID, CreatedAt: now, UpdatedAt: now},
+		FarmID:          farmID,
+		Code:            "FLOCK-A1",
+		Name:            "Puyuh Petelur Unggul Batch 01",
+		EntryDate:       now.AddDate(0, -3, 0),
+		InitialQuantity: 1200,
+		CurrentQuantity: 1180,
+		InitialAgeDays:  60,
+		Status:          "active",
+		Notes:           "Kelompok utama puyuh petelur di Kandang A1, kondisi sangat produktif",
+	}
+	db.Flocks = append(db.Flocks, flock1)
+	db.FlockPlacements = append(db.FlockPlacements, models.FlockPlacement{
+		BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
+		FlockID:       flock1ID,
+		CoopID:        coopA1.ID,
+		Quantity:      1180,
+	})
+
+	flock2ID := uuid.New()
+	flock2 := models.Flock{
+		BaseUUIDModel:   models.BaseUUIDModel{ID: flock2ID, CreatedAt: now, UpdatedAt: now},
+		FarmID:          farmID,
+		Code:            "FLOCK-A2",
+		Name:            "Puyuh Petelur Siap Telur Batch 02",
+		EntryDate:       now.AddDate(0, -1, 0),
+		InitialQuantity: 800,
+		CurrentQuantity: 792,
+		InitialAgeDays:  45,
+		Status:          "active",
+		Notes:           "Kelompok puyuh petelur muda di Kandang A2, baru memasuki masa bertelur",
+	}
+	db.Flocks = append(db.Flocks, flock2)
+	db.FlockPlacements = append(db.FlockPlacements, models.FlockPlacement{
+		BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
+		FlockID:       flock2ID,
+		CoopID:        coopA2.ID,
+		Quantity:      792,
+	})
+
+	// 4. Tambah Riwayat Panen & Pemakaian Pakan 14 Hari Terakhir
+	prodPatternA1 := []int{980, 995, 1010, 990, 1005, 1020, 985, 1015, 1000, 995, 1025, 1010, 1005, 1018}
+	damagedPatternA1 := []int{15, 18, 12, 19, 14, 20, 16, 15, 18, 14, 21, 16, 17, 15}
+	feedPatternA1 := []float64{28.5, 29.0, 28.8, 29.2, 28.6, 29.5, 28.9, 29.1, 28.7, 29.3, 28.8, 29.4, 29.0, 29.2}
+
+	prodPatternA2 := []int{540, 560, 555, 570, 580, 595, 590, 610, 605, 620, 615, 630, 625, 640}
+	damagedPatternA2 := []int{8, 11, 9, 10, 12, 8, 11, 13, 10, 9, 12, 11, 8, 10}
+	feedPatternA2 := []float64{18.2, 18.5, 18.4, 18.6, 18.8, 18.9, 18.7, 19.0, 18.9, 19.1, 19.0, 19.2, 19.1, 19.3}
+
+	for i := 13; i >= 0; i-- {
+		dayDate := now.AddDate(0, 0, -i)
+		idx := 13 - i
+
+		// Panen A1
+		totA1 := prodPatternA1[idx]
+		damA1 := damagedPatternA1[idx]
+		salA1 := totA1 - damA1
+		recIDA1 := uuid.New()
+		db.ProductionRecords = append(db.ProductionRecords, models.ProductionRecord{
+			BaseUUIDModel: models.BaseUUIDModel{ID: recIDA1, CreatedAt: dayDate, UpdatedAt: dayDate},
+			FarmID:        farmID,
+			FlockID:       flock1ID,
+			CoopID:        coopA1.ID,
+			RecordDate:    dayDate,
+			TotalEggs:     totA1,
+			DamagedEggs:   damA1,
+			SaleableEggs:  salA1,
+			Notes:         "Panen telur rutin pagi & sore Kandang A1",
+		})
+		if eggProduct != nil {
+			db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
+				BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: dayDate, UpdatedAt: dayDate},
+				FarmID:        farmID,
+				ProductID:     eggProduct.ID,
+				UnitID:        eggProduct.DefaultUnitID,
+				MovementDate:  dayDate,
+				MovementType:  "production_in",
+				Quantity:      decimal.NewFromInt(int64(salA1)),
+				ReferenceType: "production_records",
+				ReferenceID:   recIDA1,
+				Notes:         "Hasil panen telur layak jual Kandang A1",
+			})
+		}
+
+		// Pakan A1
+		fQtyA1 := decimal.NewFromFloat(feedPatternA1[idx])
+		useIDA1 := uuid.New()
+		if feedProduct != nil {
+			db.FeedUsages = append(db.FeedUsages, models.FeedUsage{
+				BaseUUIDModel: models.BaseUUIDModel{ID: useIDA1, CreatedAt: dayDate, UpdatedAt: dayDate},
+				FarmID:        farmID,
+				FlockID:       flock1ID,
+				CoopID:        coopA1.ID,
+				ProductID:     feedProduct.ID,
+				UnitID:        feedProduct.DefaultUnitID,
+				UsageDate:     dayDate,
+				Quantity:      fQtyA1,
+				Notes:         "Pemberian ransum pakan harian puyuh A1",
+			})
+			db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
+				BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: dayDate, UpdatedAt: dayDate},
+				FarmID:        farmID,
+				ProductID:     feedProduct.ID,
+				UnitID:        feedProduct.DefaultUnitID,
+				MovementDate:  dayDate,
+				MovementType:  "usage_out",
+				Quantity:      fQtyA1.Neg(),
+				ReferenceType: "feed_usages",
+				ReferenceID:   useIDA1,
+				Notes:         "Konsumsi pakan harian Kandang A1",
+			})
+		}
+
+		// Panen A2
+		totA2 := prodPatternA2[idx]
+		damA2 := damagedPatternA2[idx]
+		salA2 := totA2 - damA2
+		recIDA2 := uuid.New()
+		db.ProductionRecords = append(db.ProductionRecords, models.ProductionRecord{
+			BaseUUIDModel: models.BaseUUIDModel{ID: recIDA2, CreatedAt: dayDate, UpdatedAt: dayDate},
+			FarmID:        farmID,
+			FlockID:       flock2ID,
+			CoopID:        coopA2.ID,
+			RecordDate:    dayDate,
+			TotalEggs:     totA2,
+			DamagedEggs:   damA2,
+			SaleableEggs:  salA2,
+			Notes:         "Panen telur rutin Kandang A2",
+		})
+		if eggProduct != nil {
+			db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
+				BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: dayDate, UpdatedAt: dayDate},
+				FarmID:        farmID,
+				ProductID:     eggProduct.ID,
+				UnitID:        eggProduct.DefaultUnitID,
+				MovementDate:  dayDate,
+				MovementType:  "production_in",
+				Quantity:      decimal.NewFromInt(int64(salA2)),
+				ReferenceType: "production_records",
+				ReferenceID:   recIDA2,
+				Notes:         "Hasil panen telur layak jual Kandang A2",
+			})
+		}
+
+		// Pakan A2
+		fQtyA2 := decimal.NewFromFloat(feedPatternA2[idx])
+		useIDA2 := uuid.New()
+		if feedProduct != nil {
+			db.FeedUsages = append(db.FeedUsages, models.FeedUsage{
+				BaseUUIDModel: models.BaseUUIDModel{ID: useIDA2, CreatedAt: dayDate, UpdatedAt: dayDate},
+				FarmID:        farmID,
+				FlockID:       flock2ID,
+				CoopID:        coopA2.ID,
+				ProductID:     feedProduct.ID,
+				UnitID:        feedProduct.DefaultUnitID,
+				UsageDate:     dayDate,
+				Quantity:      fQtyA2,
+				Notes:         "Pemberian ransum pakan harian puyuh A2",
+			})
+			db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
+				BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: dayDate, UpdatedAt: dayDate},
+				FarmID:        farmID,
+				ProductID:     feedProduct.ID,
+				UnitID:        feedProduct.DefaultUnitID,
+				MovementDate:  dayDate,
+				MovementType:  "usage_out",
+				Quantity:      fQtyA2.Neg(),
+				ReferenceType: "feed_usages",
+				ReferenceID:   useIDA2,
+				Notes:         "Konsumsi pakan harian Kandang A2",
+			})
+		}
+	}
 }

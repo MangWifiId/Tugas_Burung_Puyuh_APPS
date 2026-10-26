@@ -317,3 +317,88 @@ func (h *InventoryHandler) RecordAdjustment(c *gin.Context) {
 
 	response.JSON(c, http.StatusCreated, "Penyesuaian stok berhasil dicatat", newAdj)
 }
+
+// RecordStockIn mencatat penerimaan stok masuk non-pembelian formal (misalnya: stok awal, donasi, retur, dll).
+func (h *InventoryHandler) RecordStockIn(c *gin.Context) {
+	var req struct {
+		ProductID    string          `json:"product_id" binding:"required"`
+		Quantity     decimal.Decimal `json:"quantity" binding:"required"`
+		UnitCost     decimal.Decimal `json:"unit_cost"`
+		ReceivedDate string          `json:"received_date" binding:"required"`
+		Notes        string          `json:"notes"`
+		Source       string          `json:"source"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ValidationError(c, "Data penerimaan stok tidak lengkap (produk, jumlah, dan tanggal wajib diisi)")
+		return
+	}
+
+	if req.Quantity.LessThanOrEqual(decimal.Zero) {
+		response.BadRequest(c, "Jumlah penerimaan harus lebih besar dari 0")
+		return
+	}
+
+	receivedDate, err := time.Parse("2006-01-02", req.ReceivedDate)
+	if err != nil {
+		response.BadRequest(c, "Format tanggal harus YYYY-MM-DD")
+		return
+	}
+
+	prodUUID, err := uuid.Parse(req.ProductID)
+	if err != nil {
+		response.BadRequest(c, "ID produk tidak valid")
+		return
+	}
+
+	db := database.DBInstance
+	db.Lock()
+	defer db.Unlock()
+
+	var product *models.Product
+	for _, p := range db.Products {
+		if p.ID == prodUUID {
+			prodCopy := p
+			product = &prodCopy
+			break
+		}
+	}
+	if product == nil {
+		response.NotFound(c, "Produk tidak ditemukan")
+		return
+	}
+
+	now := time.Now().UTC()
+	movID := uuid.New()
+
+	var farmID uuid.UUID
+	if len(db.Farms) > 0 {
+		farmID = db.Farms[0].ID
+	}
+
+	source := req.Source
+	if source == "" {
+		source = "manual"
+	}
+	notes := req.Notes
+	if notes == "" {
+		notes = fmt.Sprintf("Penerimaan stok manual — sumber: %s", source)
+	}
+
+	newMovement := models.InventoryMovement{
+		BaseUUIDModel: models.BaseUUIDModel{ID: movID, CreatedAt: now, UpdatedAt: now},
+		FarmID:        farmID,
+		ProductID:     prodUUID,
+		UnitID:        product.DefaultUnitID,
+		MovementDate:  receivedDate,
+		MovementType:  "stock_in",
+		Quantity:      req.Quantity,
+		ReferenceType: "manual_stock_in",
+		ReferenceID:   movID,
+		Notes:         notes,
+	}
+	db.InventoryMovements = append(db.InventoryMovements, newMovement)
+
+	_ = db.Persist()
+
+	response.JSON(c, http.StatusCreated, "Penerimaan stok berhasil dicatat", newMovement)
+}

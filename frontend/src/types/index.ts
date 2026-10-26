@@ -268,3 +268,77 @@ export interface ProductionTrendPoint {
   saleable_eggs: number;
   damaged_eggs: number;
 }
+
+export interface PeriodInfo {
+  start_date: string;
+  end_date: string;
+  days_count: number;
+}
+
+export interface AnalyticsSummary {
+  active_population: number;
+  total_eggs_produced: number;
+  total_saleable_eggs: number;
+  total_damaged_eggs: number;
+  damaged_rate_pct: number;
+  hen_day_pct: number;
+  total_feed_kg: string | number;
+  daily_feed_intake_g: number;
+  fcr_per_100_eggs: number;
+  fcr_per_tray: number;
+  feed_price_per_kg: string | number;
+  total_feed_cost: string | number;
+  feed_cost_per_egg: string | number;
+  feed_cost_per_tray: string | number;
+  avg_egg_price: string | number;
+  gross_margin_per_egg: string | number;
+  gross_margin_pct: number;
+  total_mortality: number;
+  mortality_rate_pct: number;
+  performance_status: 'excellent' | 'good' | 'warning';
+  performance_label: string;
+}
+
+export interface DailyAnalyticsTrend {
+  date: string;
+  eggs_produced: number;
+  saleable_eggs: number;
+  damaged_eggs: number;
+  hen_day_pct: number;
+  feed_kg: number;
+  daily_feed_per_bird_g: number;
+  fcr_per_100: number;
+}
+
+export interface CoopPerformanceItem {
+  coop_id: string;
+  coop_code: string;
+  coop_name: string;
+  capacity: number;
+  population: number;
+  eggs_produced: number;
+  saleable_eggs: number;
+  hen_day_pct: number;
+  feed_kg: number;
+  feed_per_bird_g: number;
+  fcr_per_100: number;
+  feed_cost_est: string | number;
+  cost_per_egg: string | number;
+  status: 'optimal' | 'good' | 'warning' | 'inactive';
+  status_label: string;
+}
+
+export interface PerformanceInsight {
+  category: 'production' | 'feed' | 'fcr' | 'quality' | 'financial';
+  title: string;
+  message: string;
+  type: 'success' | 'info' | 'warning';
+}
+
+export interface PerformanceAnalyticsResponse {
+  period: PeriodInfo;
+  summary: AnalyticsSummary;
+  daily_trends: DailyAnalyticsTrend[];
+  coop_comparison: CoopPerformanceItem[];
+  insights: PerformanceInsight[];
+}

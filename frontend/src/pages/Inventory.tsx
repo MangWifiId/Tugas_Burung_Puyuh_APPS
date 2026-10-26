@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, Plus, AlertTriangle, ArrowDownRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Package, Plus, AlertTriangle, ArrowDownRight, CheckCircle2, AlertCircle, SlidersHorizontal, PackagePlus } from 'lucide-react';
 import { api } from '../services/api';
 import type { StockSummaryItem, InventoryMovement, Flock, Coop, Product } from '../types';
 
 export const Inventory: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'summary' | 'movements'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'movements' | 'adjustments'>('summary');
   const [showUsageModal, setShowUsageModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [showStockInModal, setShowStockInModal] = useState(false);
 
   // Forms
   const [usageForm, setUsageForm] = useState({
@@ -28,6 +30,22 @@ export const Inventory: React.FC = () => {
     min_stock_alert: 50,
     initial_price: 8000,
     description: '',
+  });
+
+  const [adjustmentForm, setAdjustmentForm] = useState({
+    product_id: '',
+    actual_qty: 0,
+    reason: '',
+    notes: '',
+  });
+
+  const [stockInForm, setStockInForm] = useState({
+    product_id: '',
+    quantity: 0,
+    unit_cost: 0,
+    received_date: new Date().toISOString().split('T')[0],
+    notes: '',
+    source: '',
   });
 
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -101,6 +119,43 @@ export const Inventory: React.FC = () => {
     },
   });
 
+  const adjustmentMutation = useMutation({
+    mutationFn: (data: typeof adjustmentForm) => api.post('/inventory/adjustments', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
+      setShowAdjustmentModal(false);
+      setAdjustmentForm({ product_id: '', actual_qty: 0, reason: '', notes: '' });
+      setFeedback({ type: 'success', message: 'Penyesuaian stok berhasil dicatat' });
+      setTimeout(() => setFeedback(null), 3000);
+    },
+    onError: (err: any) => {
+      setFeedback({ type: 'error', message: err.message || 'Gagal melakukan penyesuaian stok' });
+    },
+  });
+
+  const stockInMutation = useMutation({
+    mutationFn: (data: typeof stockInForm) => api.post('/inventory/stock-in', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements'] });
+      setShowStockInModal(false);
+      setStockInForm({
+        product_id: '',
+        quantity: 0,
+        unit_cost: 0,
+        received_date: new Date().toISOString().split('T')[0],
+        notes: '',
+        source: '',
+      });
+      setFeedback({ type: 'success', message: 'Penerimaan stok berhasil dicatat dan saldo stok bertambah' });
+      setTimeout(() => setFeedback(null), 3000);
+    },
+    onError: (err: any) => {
+      setFeedback({ type: 'error', message: err.message || 'Gagal mencatat penerimaan stok' });
+    },
+  });
+
   const formatNumber = (val?: string | number) => {
     if (!val) return '0';
     const n = typeof val === 'string' ? parseFloat(val) : val;
@@ -125,6 +180,20 @@ export const Inventory: React.FC = () => {
           >
             <Plus size={16} />
             <span>Tambah Barang</span>
+          </button>
+          <button
+            onClick={() => setShowStockInModal(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all"
+          >
+            <PackagePlus size={16} />
+            <span>Terima Stok Masuk</span>
+          </button>
+          <button
+            onClick={() => { setShowAdjustmentModal(true); setActiveTab('adjustments'); }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-sm transition-all"
+          >
+            <SlidersHorizontal size={16} />
+            <span>Penyesuaian Stok</span>
           </button>
           <button
             onClick={() => setShowUsageModal(true)}
@@ -172,6 +241,17 @@ export const Inventory: React.FC = () => {
         >
           <ArrowDownRight size={18} />
           <span>Buku Mutasi Stok (Ledger)</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('adjustments')}
+          className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'adjustments'
+              ? 'border-violet-600 text-violet-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <SlidersHorizontal size={18} />
+          <span>Penyesuaian Stok</span>
         </button>
       </div>
 
@@ -315,6 +395,34 @@ export const Inventory: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: PENYESUAIAN STOK */}
+      {activeTab === 'adjustments' && (
+        <div className="space-y-4">
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 text-sm text-violet-800">
+            <p className="font-bold mb-1">Apa itu Penyesuaian Stok?</p>
+            <p className="text-xs leading-relaxed">
+              Penyesuaian stok digunakan saat stok fisik di gudang berbeda dengan catatan sistem (misalnya setelah stock opname).
+              Sistem akan mencatat selisihnya sebagai mutasi <strong>adjustment_in</strong> atau <strong>adjustment_out</strong>.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col items-center gap-4">
+            <SlidersHorizontal size={40} className="text-violet-400" />
+            <p className="text-sm text-slate-600 text-center max-w-sm">
+              Klik tombol <strong>"Penyesuaian Stok"</strong> di header untuk membuka form penyesuaian stok,
+              atau gunakan tombol di bawah ini:
+            </p>
+            <button
+              onClick={() => setShowAdjustmentModal(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm shadow-sm transition-all"
+            >
+              <SlidersHorizontal size={18} />
+              Buka Form Penyesuaian Stok
+            </button>
           </div>
         </div>
       )}
@@ -561,6 +669,228 @@ export const Inventory: React.FC = () => {
                   className="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl disabled:opacity-50"
                 >
                   {createProductMutation.isPending ? 'Menyimpan...' : 'Simpan Barang'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Penyesuaian Stok (Stock Opname) */}
+      {showAdjustmentModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Penyesuaian Stok Fisik</h2>
+            <p className="text-xs text-slate-500 mb-4">
+              Sesuaikan kuantitas catatan sistem dengan hasil hitung fisik di gudang.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                adjustmentMutation.mutate(adjustmentForm);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Pilih Barang
+                </label>
+                <select
+                  required
+                  value={adjustmentForm.product_id}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, product_id: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none"
+                >
+                  <option value="">-- Pilih Barang --</option>
+                  {products?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.sku})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Jumlah Fisik Aktual
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  step="any"
+                  value={adjustmentForm.actual_qty}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, actual_qty: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Alasan Penyesuaian
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="misal: Selisih stock opname mingguan, pakan tumpah, dll."
+                  value={adjustmentForm.reason}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Catatan Tambahan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Catatan tim gudang..."
+                  value={adjustmentForm.notes}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, notes: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-violet-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustmentModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={adjustmentMutation.isPending}
+                  className="px-4 py-2 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl disabled:opacity-50"
+                >
+                  {adjustmentMutation.isPending ? 'Menyimpan...' : 'Simpan Penyesuaian'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Terima Stok Masuk (Stock In Manual) */}
+      {showStockInModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Penerimaan Stok Masuk</h2>
+            <p className="text-xs text-slate-500 mb-4">
+              Catat penerimaan stok masuk non-PO (stok awal, hibah, retur, pengadaan tunai kecil).
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                stockInMutation.mutate(stockInForm);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Pilih Barang
+                </label>
+                <select
+                  required
+                  value={stockInForm.product_id}
+                  onChange={(e) => setStockInForm({ ...stockInForm, product_id: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none"
+                >
+                  <option value="">-- Pilih Barang --</option>
+                  {products?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.sku})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Tanggal Terima
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={stockInForm.received_date}
+                    onChange={(e) => setStockInForm({ ...stockInForm, received_date: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Jumlah Masuk
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0.1}
+                    step="any"
+                    value={stockInForm.quantity}
+                    onChange={(e) => setStockInForm({ ...stockInForm, quantity: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Biaya per Unit (Opsional)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={stockInForm.unit_cost}
+                    onChange={(e) => setStockInForm({ ...stockInForm, unit_cost: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Sumber / Asal
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: Stok Awal / Peternak Mitra"
+                    value={stockInForm.source}
+                    onChange={(e) => setStockInForm({ ...stockInForm, source: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Catatan Penerimaan
+                </label>
+                <input
+                  type="text"
+                  placeholder="Keterangan dokumen fisik / surat jalan..."
+                  value={stockInForm.notes}
+                  onChange={(e) => setStockInForm({ ...stockInForm, notes: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowStockInModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={stockInMutation.isPending}
+                  className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl disabled:opacity-50"
+                >
+                  {stockInMutation.isPending ? 'Menyimpan...' : 'Simpan Penerimaan'}
                 </button>
               </div>
             </form>

@@ -676,7 +676,7 @@ export const Finance: React.FC = () => {
                   notes: suppPaymentForm.notes,
                   allocations: [
                     {
-                      invoice_id: payBillModal.id, // mapped to bill_id
+                      bill_id: payBillModal.id,
                       amount: suppPaymentForm.amount,
                     },
                   ],

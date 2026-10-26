@@ -72,6 +72,13 @@ type PaymentAllocationInputRequest struct {
 	Amount    decimal.Decimal `json:"amount" binding:"required"`
 }
 
+// SupplierBillAllocationInputRequest digunakan khusus untuk alokasi pembayaran tagihan pemasok.
+// Menggunakan bill_id (bukan invoice_id) agar konsisten dengan konteks tagihan pemasok.
+type SupplierBillAllocationInputRequest struct {
+	BillID string          `json:"bill_id" binding:"required"`
+	Amount decimal.Decimal `json:"amount" binding:"required"`
+}
+
 func (h *FinanceHandler) RecordCustomerPayment(c *gin.Context) {
 	var req CreateCustomerPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -236,13 +243,13 @@ func (h *FinanceHandler) ListSupplierBills(c *gin.Context) {
 }
 
 type CreateSupplierPaymentRequest struct {
-	SupplierID    string                          `json:"supplier_id" binding:"required"`
-	PaymentDate   string                          `json:"payment_date" binding:"required"`
-	PaymentMethod string                          `json:"payment_method" binding:"required"`
-	CashAccountID string                          `json:"cash_account_id" binding:"required"`
-	Amount        decimal.Decimal                 `json:"amount" binding:"required"`
-	Notes         string                          `json:"notes"`
-	Allocations   []PaymentAllocationInputRequest `json:"allocations" binding:"required,min=1"`
+	SupplierID    string                               `json:"supplier_id" binding:"required"`
+	PaymentDate   string                               `json:"payment_date" binding:"required"`
+	PaymentMethod string                               `json:"payment_method" binding:"required"`
+	CashAccountID string                               `json:"cash_account_id" binding:"required"`
+	Amount        decimal.Decimal                      `json:"amount" binding:"required"`
+	Notes         string                               `json:"notes"`
+	Allocations   []SupplierBillAllocationInputRequest `json:"allocations" binding:"required,min=1"`
 }
 
 func (h *FinanceHandler) RecordSupplierPayment(c *gin.Context) {
@@ -322,7 +329,7 @@ func (h *FinanceHandler) RecordSupplierPayment(c *gin.Context) {
 
 	// Alokasi ke tagihan
 	for _, al := range req.Allocations {
-		billUUID, _ := uuid.Parse(al.InvoiceID)
+		billUUID, _ := uuid.Parse(al.BillID)
 		db.SupplierAllocations = append(db.SupplierAllocations, models.SupplierPaymentAllocation{
 			BaseUUIDModel:   models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
 			PaymentID:       paymentID,

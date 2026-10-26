@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { Analytics } from './pages/Analytics';
 import { CoopsAndFlocks } from './pages/CoopsAndFlocks';
 import { Production } from './pages/Production';
 import { Inventory } from './pages/Inventory';
@@ -57,6 +58,7 @@ export const App: React.FC = () => {
               }
             >
               <Route index element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
               <Route path="coops-flocks" element={<CoopsAndFlocks />} />
               <Route path="production" element={<Production />} />
               <Route path="inventory" element={<Inventory />} />
