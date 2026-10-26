@@ -1,21 +1,29 @@
-FROM golang:1.21-alpine AS builder
+
+# Build stage
+FROM golang:1.27.1-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency dari folder backend
+# Salin file dependency backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
-# Copy seluruh source code backend
+# Salin kode backend
 COPY backend/ .
 
-# Build binary Go
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/api/main.go
+# Kompilasi aplikasi
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/api
 
 # Production stage
 FROM alpine:latest
+
 WORKDIR /root/
-COPY --from=builder /app/main .
+
+# Sertifikat untuk koneksi HTTPS/TLS
+RUN apk --no-cache add ca-certificates
+
+COPY --from=builder /app/main ./main
 
 EXPOSE 8080
+
 CMD ["./main"]
