@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -74,6 +77,22 @@ func main() {
 
 		// Setup route handlers
 		routes.RegisterRoutes(v1, cfg)
+	}
+
+	// Sajikan Web UI Frontend jika folder dist tersedia (Single Fullstack Container)
+	for _, distPath := range []string{"frontend/dist", "../frontend/dist", "dist"} {
+		if stat, err := os.Stat(distPath); err == nil && stat.IsDir() {
+			router.Static("/assets", filepath.Join(distPath, "assets"))
+			router.NoRoute(func(c *gin.Context) {
+				if !strings.HasPrefix(c.Request.URL.Path, "/api") {
+					c.File(filepath.Join(distPath, "index.html"))
+					return
+				}
+				response.NotFound(c, "Endpoint API tidak ditemukan")
+			})
+			log.Println("✓ Web UI Frontend terdeteksi dan disajikan dari:", distPath)
+			break
+		}
 	}
 
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)
