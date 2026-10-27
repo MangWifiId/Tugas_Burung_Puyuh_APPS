@@ -1,14 +1,20 @@
 package database
 
 import (
+	"fmt"
 	"log"
 
-	"gorm.io/gorm"
 	"quail-management/backend/internal/models"
+
+	"gorm.io/gorm"
 )
 
-// AutoMigrate applies schema changes across all defined models
+// AutoMigrate membuat atau memperbarui skema tabel PostgreSQL.
 func AutoMigrate(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("koneksi database PostgreSQL tidak tersedia")
+	}
+
 	log.Println("Memulai migrasi skema database...")
 
 	err := db.AutoMigrate(
@@ -40,22 +46,25 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.CashAccount{},
 		&models.Expense{},
 		&models.CashTransaction{},
+		&models.StockAdjustment{},
+		&models.StockAdjustmentItem{},
 		&models.AuditLog{},
 	)
-
 	if err != nil {
-		return err
+		return fmt.Errorf("gagal migrasi skema database: %w", err)
 	}
 
-	log.Println("✓ Migrasi skema database berhasil diselesaikan")
+	log.Println("Migrasi skema database berhasil diselesaikan")
 
-	// Seed base units if not exist
-	seedInitialUnits(db)
+	if err := seedInitialUnits(db); err != nil {
+		return fmt.Errorf("gagal menyiapkan data satuan awal: %w", err)
+	}
 
 	return nil
 }
 
-func seedInitialUnits(db *gorm.DB) {
+// seedInitialUnits menambahkan satuan dasar jika belum tersedia.
+func seedInitialUnits(db *gorm.DB) error {
 	initialUnits := []models.Unit{
 		{Code: "BTR", Name: "Butir", IsBaseUnit: true},
 		{Code: "RAK", Name: "Rak / Tray (30 butir)", IsBaseUnit: false},
@@ -67,12 +76,17 @@ func seedInitialUnits(db *gorm.DB) {
 	}
 
 	for _, unit := range initialUnits {
-		var count int64
-		db.Model(&models.Unit{}).Where("code = ?", unit.Code).Count(&count)
-		if count == 0 {
-			if err := db.Create(&unit).Error; err != nil {
-				log.Printf("Gagal seed satuan %s: %v\n", unit.Code, err)
-			}
+		err := db.Where("code = ?", unit.Code).
+			FirstOrCreate(&unit).Error
+		if err != nil {
+			return fmt.Errorf(
+				"gagal menyiapkan satuan %s: %w",
+				unit.Code,
+				err,
+			)
 		}
 	}
+
+	log.Println("Data satuan awal berhasil diperiksa")
+	return nil
 }
