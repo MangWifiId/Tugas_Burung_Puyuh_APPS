@@ -10,6 +10,9 @@ import {
   TrendingUp,
   PlusCircle,
   ArrowUpRight,
+  ArrowDownRight,
+  Database,
+  Sparkles,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -22,6 +25,30 @@ import {
 } from 'recharts';
 import { api } from '../services/api';
 import type { DashboardSummary, ProductionTrendPoint } from '../types';
+
+const navActions = [
+  {
+    to: '/production',
+    label: 'Input panen telur',
+    hint: 'Catat hasil pagi / sore',
+    icon: Egg,
+    tone: 'bg-amber-50 text-amber-600 group-hover:bg-amber-100',
+  },
+  {
+    to: '/inventory',
+    label: 'Catat pemakaian pakan',
+    hint: 'Stok & konsumsi harian',
+    icon: PackageCheck,
+    tone: 'bg-sky-50 text-sky-600 group-hover:bg-sky-100',
+  },
+  {
+    to: '/coops-flocks',
+    label: 'Mutasi populasi',
+    hint: 'Kematian, afkir, pindah kandang',
+    icon: Bird,
+    tone: 'bg-rose-50 text-rose-600 group-hover:bg-rose-100',
+  },
+];
 
 export const Dashboard: React.FC = () => {
   const { data: summary, isLoading: loadingSummary } = useQuery<DashboardSummary>({
@@ -50,191 +77,222 @@ export const Dashboard: React.FC = () => {
     }).format(n);
   };
 
-  const eggReadyCount = summary?.egg_stock_ready ? parseFloat(summary.egg_stock_ready.toString()) : 0;
-  const eggRacks = Math.floor(eggReadyCount / 30);
+  const eggReadyCount = summary?.egg_stock_ready
+    ? parseFloat(summary.egg_stock_ready.toString())
+    : 0;
+  const eggTrays = Math.floor(eggReadyCount / 30);
   const eggRemain = eggReadyCount % 30;
+  const trayProgress = eggRemain > 0 ? (eggRemain / 30) * 100 : eggTrays > 0 ? 100 : 0;
+
+  const metrics = [
+    {
+      label: 'Populasi Aktif',
+      value: loadingSummary ? '—' : formatNumber(summary?.active_population),
+      unit: 'ekor',
+      icon: Bird,
+      tone: 'bg-sky-50 text-sky-600',
+      note: `Tersebar di ${summary?.total_coops || 0} kandang`,
+    },
+    {
+      label: 'Panen Hari Ini',
+      value: loadingSummary ? '—' : formatNumber(summary?.today_saleable_eggs),
+      unit: 'layak jual',
+      icon: Egg,
+      tone: 'bg-amber-50 text-amber-600',
+      note: `Total ${formatNumber(summary?.today_production_eggs)} btr · pecah ${formatNumber(
+        summary?.today_damaged_eggs
+      )} btr`,
+    },
+    {
+      label: 'Stok Telur Layak Jual',
+      value: loadingSummary ? '—' : formatNumber(eggReadyCount),
+      unit: 'butir',
+      icon: PackageCheck,
+      tone: 'bg-emerald-50 text-emerald-600',
+      note: `≈ ${eggTrays} rak${eggRemain > 0 ? ` + ${eggRemain} butir` : ''}`,
+    },
+    {
+      label: 'Saldo Kas Bersih',
+      value: loadingSummary ? '—' : formatRupiah(summary?.total_cash_balance),
+      icon: Wallet,
+      tone: 'bg-violet-50 text-violet-600',
+      note: `Piutang ${formatRupiah(summary?.total_receivables)} · Utang ${formatRupiah(
+        summary?.total_payables
+      )}`,
+      wide: true,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Title & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard Operasional</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Ringkasan populasi, produksi telur, dan keuangan peternakan puyuh secara real-time.
+          <p className="eyebrow flex items-center gap-1.5">
+            <Sparkles size={13} className="text-amber-500" />
+            Ringkasan real-time
+          </p>
+          <h1 className="page-title mt-1.5">Dashboard Operasional</h1>
+          <p className="page-subtitle max-w-xl">
+            Pantau populasi, produksi telur, persediaan, dan kesehatan kas peternakan Anda
+            dalam satu tampilan.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            to="/production"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/production" className="btn-primary">
             <PlusCircle size={16} />
             <span>Panen Telur</span>
           </Link>
-          <Link
-            to="/sales"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm transition-all"
-          >
+          <Link to="/sales" className="btn-dark">
             <ArrowUpRight size={16} />
             <span>Penjualan</span>
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Populasi Puyuh Aktif */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Populasi Aktif</span>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Bird size={20} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-extrabold text-slate-900">
-              {loadingSummary ? '...' : formatNumber(summary?.active_population)} <span className="text-sm font-semibold text-slate-500">ekor</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Tersebar di <span className="font-semibold text-slate-700">{summary?.total_coops || 0} kandang</span>
-            </p>
-          </div>
-        </div>
+      {/* KPI grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <div key={metric.label} className="stat-card">
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    {metric.label}
+                  </span>
+                  <div className={`stat-icon shrink-0 ${metric.tone}`}>
+                    <Icon size={19} />
+                  </div>
+                </div>
 
-        {/* Produksi Hari Ini */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Panen Hari Ini</span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Egg size={20} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-extrabold text-slate-900">
-              {loadingSummary ? '...' : formatNumber(summary?.today_saleable_eggs)}{' '}
-              <span className="text-sm font-semibold text-slate-500">layak jual</span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Total diambil: {formatNumber(summary?.today_production_eggs)} btr (Pecah: {formatNumber(summary?.today_damaged_eggs)} btr)
-            </p>
-          </div>
-        </div>
+                <div className="mt-3 flex flex-wrap items-baseline gap-1.5">
+                  <h3
+                    className={`font-extrabold tracking-tight text-slate-900 ${
+                      metric.wide ? 'text-[1.35rem]' : 'text-[1.6rem]'
+                    }`}
+                  >
+                    {metric.value}
+                  </h3>
+                  {metric.unit && (
+                    <span className="text-xs font-semibold text-slate-500">{metric.unit}</span>
+                  )}
+                </div>
 
-        {/* Stok Telur Siap Jual */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Stok Telur Layak Jual</span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <PackageCheck size={20} />
-            </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-extrabold text-slate-900">
-              {loadingSummary ? '...' : formatNumber(eggReadyCount)}{' '}
-              <span className="text-sm font-semibold text-slate-500">butir</span>
-            </h3>
-            <p className="text-xs text-emerald-700 font-medium mt-1">
-              ≈ {eggRacks} Rak {eggRemain > 0 ? `+ ${eggRemain} butir` : ''}
-            </p>
-          </div>
-        </div>
+                <p className="mt-1.5 text-[11px] font-medium leading-relaxed text-slate-500">
+                  {metric.note}
+                </p>
 
-        {/* Kas & Keuangan */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Saldo Kas Bersih</span>
-            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-              <Wallet size={20} />
+                {metric.label === 'Stok Telur Layak Jual' && (
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all"
+                      style={{ width: `${Math.min(trayProgress, 100)}%` }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-extrabold text-slate-900">
-              {loadingSummary ? '...' : formatRupiah(summary?.total_cash_balance)}
-            </h3>
-            <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
-              <span className="text-emerald-700">Piutang: {formatRupiah(summary?.total_receivables)}</span>
-              <span className="text-red-600">Utang: {formatRupiah(summary?.total_payables)}</span>
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Warning Alert if items low in stock */}
+      {/* Low stock alert */}
       {summary && summary.low_stock_items_count > 0 && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="text-amber-600 shrink-0" size={20} />
-            <span className="text-sm font-semibold">
-              Peringatan: Terdapat {summary.low_stock_items_count} barang persediaan (pakan/obat) yang telah mencapai batas stok minimum!
-            </span>
+        <div className="flex flex-col gap-3 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">
+                {summary.low_stock_items_count} item persediaan di bawah stok minimum
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700/80">
+                Segera lakukan pembelian pakan atau obat agar operasional tidak terhenti.
+              </p>
+            </div>
           </div>
-          <Link
-            to="/inventory"
-            className="text-xs font-bold text-amber-900 underline hover:text-amber-800 shrink-0"
-          >
+          <Link to="/inventory" className="btn-secondary shrink-0 !border-amber-200 !text-amber-900">
             Lihat Persediaan
+            <ArrowUpRight size={14} />
           </Link>
         </div>
       )}
 
-      {/* Chart Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Production Trends Chart */}
-        <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+      {/* Chart & side panel */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="card p-5 sm:p-6 xl:col-span-2">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <TrendingUp size={18} className="text-amber-500" />
-                Tren Produksi Telur (7 Hari Terakhir)
+              <h2 className="section-title flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                  <TrendingUp size={16} />
+                </span>
+                Tren Produksi Telur
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Grafik hasil telur layak jual harian</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Hasil telur layak jual 7 hari terakhir
+              </p>
             </div>
             <Link
               to="/analytics"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-100"
             >
-              <span>Analisis & FCR</span>
+              Analisis & FCR
               <ArrowUpRight size={14} />
             </Link>
           </div>
 
-          <div className="h-64 sm:h-72 w-full">
+          <div className="h-64 w-full sm:h-72">
             {loadingTrends ? (
-              <div className="h-full flex items-center justify-center text-sm text-slate-400">
-                Memuat grafik...
+              <div className="flex h-full items-center justify-center">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-amber-500" />
+                  Memuat grafik...
+                </div>
               </div>
             ) : trends && trends.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={trends} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorEggs" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="4 6" vertical={false} stroke="#e2e8f0" />
                   <XAxis
                     dataKey="date"
                     stroke="#94a3b8"
                     fontSize={11}
-                    tickFormatter={(val) => {
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(val: string) => {
                       const parts = val.split('-');
                       return `${parts[2]}/${parts[1]}`;
                     }}
                   />
-                  <YAxis stroke="#94a3b8" fontSize={11} />
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
+                    cursor={{ stroke: '#fcd34d', strokeWidth: 1, strokeDasharray: '4 4' }}
                     contentStyle={{
-                      backgroundColor: '#1e293b',
+                      backgroundColor: '#0f172a',
                       borderRadius: '12px',
                       border: 'none',
                       color: '#fff',
                       fontSize: '12px',
+                      padding: '10px 12px',
+                      boxShadow: '0 20px 40px -12px rgba(15,23,42,0.4)',
                     }}
                     labelFormatter={(val) => `Tanggal: ${val}`}
-                    formatter={(val: any) => [`${val} butir`, 'Layak Jual']}
+                    formatter={(val) => [`${val} butir`, 'Layak Jual']}
                   />
                   <Area
                     type="monotone"
@@ -243,63 +301,84 @@ export const Dashboard: React.FC = () => {
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorEggs)"
+                    activeDot={{ r: 4, fill: '#f59e0b', stroke: '#fff', strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-slate-400">
-                Belum ada data produksi dalam 7 hari terakhir.
+              <div className="flex h-full flex-col items-center justify-center gap-1 text-sm text-slate-400">
+                <Egg size={26} className="text-slate-300" />
+                Belum ada data produksi 7 hari terakhir.
               </div>
             )}
           </div>
         </div>
 
-        {/* Quick Summary Panels */}
         <div className="space-y-4">
-          <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900 mb-3">Aksi Cepat Harian</h3>
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">Aksi Cepat Harian</h3>
+              <span className="badge-neutral">Hari ini</span>
+            </div>
             <div className="space-y-2">
-              <Link
-                to="/production"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-amber-50 hover:border-amber-200 border border-slate-100 transition-all text-xs font-semibold text-slate-700"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Egg size={16} className="text-amber-600" />
-                  Input Panen Telur Sore/Pagi
-                </span>
-                <ArrowUpRight size={15} className="text-slate-400" />
-              </Link>
-
-              <Link
-                to="/inventory"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border border-slate-100 transition-all text-xs font-semibold text-slate-700"
-              >
-                <span className="flex items-center gap-2.5">
-                  <PackageCheck size={16} className="text-blue-600" />
-                  Catat Pemakaian Pakan Harian
-                </span>
-                <ArrowUpRight size={15} className="text-slate-400" />
-              </Link>
-
-              <Link
-                to="/coops-flocks"
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-red-50 hover:border-red-200 border border-slate-100 transition-all text-xs font-semibold text-slate-700"
-              >
-                <span className="flex items-center gap-2.5">
-                  <Bird size={16} className="text-red-600" />
-                  Catat Kematian / Pindah Kandang
-                </span>
-                <ArrowUpRight size={15} className="text-slate-400" />
-              </Link>
+              {navActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Link
+                    key={action.to}
+                    to={action.to}
+                    className="group flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3 transition-all hover:border-slate-200 hover:bg-white hover:shadow-sm"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${action.tone}`}
+                      >
+                        <Icon size={17} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-bold text-slate-700">
+                          {action.label}
+                        </span>
+                        <span className="block truncate text-[11px] text-slate-400">
+                          {action.hint}
+                        </span>
+                      </span>
+                    </span>
+                    <ArrowUpRight
+                      size={15}
+                      className="shrink-0 text-slate-300 transition-colors group-hover:text-slate-600"
+                    />
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">Status Penyimpanan Data</h4>
-            <p className="text-sm font-bold mt-1 text-slate-100">JSON File Database Aktif</p>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-              Seluruh transaksi tersimpan aman di berkas JSON terstruktur backend. Siap diekspor atau dialihkan ke PostgreSQL kelak.
-            </p>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-5 text-white shadow-lg shadow-slate-900/10">
+            <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-amber-400/10 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2">
+                <Database size={15} className="text-amber-400" />
+                <h4 className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-400">
+                  Status Penyimpanan
+                </h4>
+              </div>
+              <p className="mt-2 text-sm font-bold text-slate-100">JSON File Database Aktif</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                Setiap transaksi ditulis secara atomik dan aman. Siap diekspor atau
+                disinkronkan ke PostgreSQL kapan saja.
+              </p>
+              <div className="mt-4 flex items-center gap-4 border-t border-white/10 pt-3 text-[11px]">
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Tersimpan
+                </span>
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <ArrowDownRight size={13} />
+                  Backup harian
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

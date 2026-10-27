@@ -6,9 +6,9 @@ Aplikasi web modern untuk manajemen operasional peternakan puyuh dan pencatatan 
 
 ## 🛠️ Stack Teknologi
 
-- **Backend**: Go (Gin Web Framework, GORM ORM, PostgreSQL)
+- **Backend**: Go (Gin Web Framework, GORM ORM)
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, Recharts, Lucide Icons
-- **Database**: PostgreSQL dengan presisi desimal `NUMERIC(15,2)` untuk finansial dan `NUMERIC(12,3)` untuk stok.
+- **Database**: Berkas JSON sebagai penyimpanan utama (atomic write). PostgreSQL bersifat **mirror opsional** untuk analitik/backup.
 - **Arsitektur**: Modular Monolith dengan REST API JSON terstandarisasi.
 
 ---
@@ -45,9 +45,9 @@ Aplikasi web modern untuk manajemen operasional peternakan puyuh dan pencatatan 
 ## 🚀 Panduan Menjalankan Proyek
 
 ### 1. Prasyarat
-- Go 1.22+
-- Node.js v20+ dan npm
-- Database PostgreSQL (Lokal atau Cloud / Supabase / Neon / dsb.)
+- Go 1.27+
+- Node.js v22+ dan npm
+- (Opsional) PostgreSQL untuk mirror data
 
 ### 2. Menjalankan Backend Go
 ```powershell
@@ -63,6 +63,16 @@ go run ./cmd/api
 
 Endpoint Health Check: `http://localhost:8080/api/v1/health`
 
+Variabel environment penting:
+
+| Variabel | Default | Keterangan |
+| --- | --- | --- |
+| `PORT` | `8080` | Port server API |
+| `DATA_DIR` | `data` | Folder penyimpanan `database.json` |
+| `JWT_SECRET` | — | **Wajib diganti** di produksi |
+| `ALLOW_REGISTRATION` | `false` | Izinkan registrasi publik meski akun sudah ada |
+| `DATABASE_URL` | kosong | Opsional, mengaktifkan mirror PostgreSQL |
+
 ### 3. Menjalankan Frontend React
 ```powershell
 # Masuk ke direktori frontend
@@ -75,7 +85,21 @@ npm install
 npm run dev
 ```
 
-Buka browser di `http://localhost:5173`.
+Buka browser di `http://localhost:5173`. Secara default frontend memanggil `/api/v1`
+dan Vite mem-proxy request tersebut ke `http://localhost:8080`, sehingga tidak perlu
+mengisi `VITE_API_BASE_URL` saat development.
+
+### 4. Menjalankan dengan Docker (satu container)
+Dockerfile bersifat multi-stage: frontend dibangun lebih dulu, lalu backend Go, dan
+keduanya disajikan dari satu container.
+
+```powershell
+docker build -t quailfarm .
+docker run -p 8080:8080 -v quailfarm-data:/data -e JWT_SECRET=ganti-dengan-rahasia-panjang quailfarm
+```
+
+Buka `http://localhost:8080`. **Penting:** mount volume ke `/data` (atau set `DATA_DIR`
+ke volume persisten) agar data JSON tidak hilang saat container/redeploy.
 
 ---
 

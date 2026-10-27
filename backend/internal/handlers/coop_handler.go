@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -81,6 +82,10 @@ func (h *CoopHandler) CreateCoop(c *gin.Context) {
 	if status == "" {
 		status = "active"
 	}
+	if status != "active" && status != "maintenance" && status != "inactive" {
+		response.BadRequest(c, "Status kandang harus salah satu dari: active, maintenance, inactive")
+		return
+	}
 
 	newCoop := models.Coop{
 		BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
@@ -93,7 +98,10 @@ func (h *CoopHandler) CreateCoop(c *gin.Context) {
 	}
 
 	db.Coops = append(db.Coops, newCoop)
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Kandang baru berhasil ditambahkan", newCoop)
 }
@@ -129,6 +137,22 @@ func (h *CoopHandler) UpdateCoop(c *gin.Context) {
 		return
 	}
 
+	if req.Status != "" && req.Status != "active" && req.Status != "maintenance" && req.Status != "inactive" {
+		response.BadRequest(c, "Status kandang harus salah satu dari: active, maintenance, inactive")
+		return
+	}
+
+	currentPopulation := 0
+	for _, fp := range db.FlockPlacements {
+		if fp.CoopID == coopID {
+			currentPopulation += fp.Quantity
+		}
+	}
+	if req.Capacity < currentPopulation {
+		response.Unprocessable(c, fmt.Sprintf("Kapasitas kandang (%d) tidak boleh lebih kecil dari populasi saat ini (%d)", req.Capacity, currentPopulation))
+		return
+	}
+
 	db.Coops[foundIndex].Name = req.Name
 	db.Coops[foundIndex].Capacity = req.Capacity
 	if req.Status != "" {
@@ -137,6 +161,9 @@ func (h *CoopHandler) UpdateCoop(c *gin.Context) {
 	db.Coops[foundIndex].Notes = req.Notes
 	db.Coops[foundIndex].UpdatedAt = time.Now().UTC()
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 	response.JSON(c, http.StatusOK, "Kandang berhasil diperbarui", db.Coops[foundIndex])
 }

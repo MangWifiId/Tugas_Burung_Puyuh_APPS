@@ -161,6 +161,14 @@ func (h *InventoryHandler) RecordFeedUsage(c *gin.Context) {
 		response.NotFound(c, "Produk pakan/obat tidak ditemukan")
 		return
 	}
+	if _, ok := findFlock(db, flockUUID); !ok {
+		response.NotFound(c, "Kelompok puyuh tidak ditemukan")
+		return
+	}
+	if _, ok := findCoop(db, coopUUID); !ok {
+		response.NotFound(c, "Kandang tidak ditemukan")
+		return
+	}
 
 	// Cek sisa stok saat ini
 	currentStock := decimal.Zero
@@ -209,7 +217,10 @@ func (h *InventoryHandler) RecordFeedUsage(c *gin.Context) {
 		Notes:         "Pemakaian pakan/obat harian kandang",
 	})
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pemakaian pakan berhasil dicatat dan stok berkurang", newUsage)
 }
@@ -229,6 +240,11 @@ func (h *InventoryHandler) RecordAdjustment(c *gin.Context) {
 	prodUUID, err := uuid.Parse(req.ProductID)
 	if err != nil {
 		response.BadRequest(c, "ID produk tidak valid")
+		return
+	}
+
+	if req.ActualQty.IsNegative() {
+		response.BadRequest(c, "Jumlah stok aktual tidak boleh negatif")
 		return
 	}
 
@@ -313,7 +329,10 @@ func (h *InventoryHandler) RecordAdjustment(c *gin.Context) {
 		Notes:         fmt.Sprintf("Penyesuaian stok: %s. Alasan: %s", adjNumber, req.Reason),
 	})
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Penyesuaian stok berhasil dicatat", newAdj)
 }
@@ -335,6 +354,10 @@ func (h *InventoryHandler) RecordStockIn(c *gin.Context) {
 
 	if req.Quantity.LessThanOrEqual(decimal.Zero) {
 		response.BadRequest(c, "Jumlah penerimaan harus lebih besar dari 0")
+		return
+	}
+	if req.UnitCost.IsNegative() {
+		response.BadRequest(c, "Harga satuan tidak boleh negatif")
 		return
 	}
 
@@ -392,13 +415,17 @@ func (h *InventoryHandler) RecordStockIn(c *gin.Context) {
 		MovementDate:  receivedDate,
 		MovementType:  "stock_in",
 		Quantity:      req.Quantity,
+		UnitCost:      req.UnitCost,
 		ReferenceType: "manual_stock_in",
 		ReferenceID:   movID,
 		Notes:         notes,
 	}
 	db.InventoryMovements = append(db.InventoryMovements, newMovement)
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Penerimaan stok berhasil dicatat", newMovement)
 }

@@ -1,13 +1,16 @@
 package database
 
 import (
+	"fmt"
 	"log"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// SyncDataToPostgres menyinkronkan seluruh data dari JSONDatabase ke PostgreSQL
+// SyncDataToPostgres menyinkronkan seluruh data dari JSONDatabase ke PostgreSQL.
+// Setiap kegagalan per tabel dikumpulkan dan dikembalikan agar pemanggil tidak
+// salah mengira seluruh data sudah termirror dengan baik.
 func SyncDataToPostgres(db *gorm.DB, jdb *JSONDatabase) error {
 	jdb.mu.RLock()
 	defer jdb.mu.RUnlock()
@@ -15,131 +18,102 @@ func SyncDataToPostgres(db *gorm.DB, jdb *JSONDatabase) error {
 	log.Println("🔄 Memulai sinkronisasi data ke PostgreSQL...")
 
 	upsertClause := clause.OnConflict{UpdateAll: true}
+	var failures []error
 
-	// 1. Farms
+	syncTable := func(label string, value any) {
+		if err := db.Clauses(upsertClause).Create(value).Error; err != nil {
+			log.Printf("⚠️ Gagal sinkronisasi %s: %v\n", label, err)
+			failures = append(failures, fmt.Errorf("%s: %w", label, err))
+		}
+	}
+
+	// Urutan mengikuti dependensi foreign key: induk selalu lebih dulu.
 	if len(jdb.Farms) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Farms).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi farms: %v\n", err)
-		}
+		syncTable("farms", &jdb.Farms)
 	}
-
-	// 2. Users
 	if len(jdb.Users) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Users).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi users: %v\n", err)
-		}
+		syncTable("users", &jdb.Users)
 	}
-
-	// 3. Coops
 	if len(jdb.Coops) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Coops).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi coops: %v\n", err)
-		}
+		syncTable("coops", &jdb.Coops)
 	}
-
-	// 4. Units
 	if len(jdb.Units) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Units).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi units: %v\n", err)
-		}
+		syncTable("units", &jdb.Units)
 	}
-
-	// 5. Products
 	if len(jdb.Products) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Products).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi products: %v\n", err)
-		}
+		syncTable("products", &jdb.Products)
 	}
-
-	// 6. Customers & Suppliers
 	if len(jdb.Customers) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Customers).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi customers: %v\n", err)
-		}
+		syncTable("customers", &jdb.Customers)
 	}
 	if len(jdb.Suppliers) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Suppliers).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi suppliers: %v\n", err)
-		}
+		syncTable("suppliers", &jdb.Suppliers)
 	}
-
-	// 7. Flocks & Placements & Movements
 	if len(jdb.Flocks) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Flocks).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi flocks: %v\n", err)
-		}
+		syncTable("flocks", &jdb.Flocks)
 	}
 	if len(jdb.FlockPlacements) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.FlockPlacements).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi flock placements: %v\n", err)
-		}
+		syncTable("flock placements", &jdb.FlockPlacements)
 	}
 	if len(jdb.FlockMovements) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.FlockMovements).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi flock movements: %v\n", err)
-		}
+		syncTable("flock movements", &jdb.FlockMovements)
 	}
-
-	// 8. Production Records
 	if len(jdb.ProductionRecords) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.ProductionRecords).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi production records: %v\n", err)
-		}
+		syncTable("production records", &jdb.ProductionRecords)
 	}
-
-	// 9. Inventory Movements & Feed Usages
 	if len(jdb.InventoryMovements) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.InventoryMovements).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi inventory movements: %v\n", err)
-		}
+		syncTable("inventory movements", &jdb.InventoryMovements)
 	}
 	if len(jdb.FeedUsages) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.FeedUsages).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi feed usages: %v\n", err)
-		}
+		syncTable("feed usages", &jdb.FeedUsages)
 	}
-
-	// 10. Cash Accounts, Transactions, Expenses
 	if len(jdb.CashAccounts) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.CashAccounts).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi cash accounts: %v\n", err)
-		}
+		syncTable("cash accounts", &jdb.CashAccounts)
 	}
 	if len(jdb.CashTransactions) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.CashTransactions).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi cash transactions: %v\n", err)
-		}
+		syncTable("cash transactions", &jdb.CashTransactions)
 	}
 	if len(jdb.Expenses) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Expenses).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi expenses: %v\n", err)
-		}
+		syncTable("expenses", &jdb.Expenses)
 	}
-
-	// 11. Sales & Purchases
 	if len(jdb.Sales) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Sales).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi sales: %v\n", err)
-		}
+		syncTable("sales", &jdb.Sales)
 	}
 	if len(jdb.Purchases) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.Purchases).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi purchases: %v\n", err)
-		}
+		syncTable("purchases", &jdb.Purchases)
 	}
-
-	// 12. Invoices & Bills
 	if len(jdb.CustomerInvoices) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.CustomerInvoices).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi invoices: %v\n", err)
-		}
+		syncTable("customer invoices", &jdb.CustomerInvoices)
 	}
 	if len(jdb.SupplierBills) > 0 {
-		if err := db.Clauses(upsertClause).Create(&jdb.SupplierBills).Error; err != nil {
-			log.Printf("⚠️ Gagal sinkronisasi bills: %v\n", err)
-		}
+		syncTable("supplier bills", &jdb.SupplierBills)
+	}
+	if len(jdb.CustomerPayments) > 0 {
+		syncTable("customer payments", &jdb.CustomerPayments)
+	}
+	if len(jdb.CustomerAllocations) > 0 {
+		syncTable("customer allocations", &jdb.CustomerAllocations)
+	}
+	if len(jdb.SupplierPayments) > 0 {
+		syncTable("supplier payments", &jdb.SupplierPayments)
+	}
+	if len(jdb.SupplierAllocations) > 0 {
+		syncTable("supplier allocations", &jdb.SupplierAllocations)
+	}
+	if len(jdb.ProductPrices) > 0 {
+		syncTable("product prices", &jdb.ProductPrices)
+	}
+	if len(jdb.StockAdjustments) > 0 {
+		syncTable("stock adjustments", &jdb.StockAdjustments)
+	}
+	if len(jdb.AuditLogs) > 0 {
+		syncTable("audit logs", &jdb.AuditLogs)
 	}
 
-	log.Println("✓ Seluruh data awal berhasil disinkronkan ke PostgreSQL!")
+	if len(failures) > 0 {
+		return fmt.Errorf("%d tabel gagal disinkronkan ke PostgreSQL", len(failures))
+	}
+
+	log.Println("✓ Sinkronisasi PostgreSQL selesai")
 	return nil
 }

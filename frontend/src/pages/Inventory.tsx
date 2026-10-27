@@ -4,6 +4,8 @@ import { Package, Plus, AlertTriangle, ArrowDownRight, CheckCircle2, AlertCircle
 import { api } from '../services/api';
 import type { StockSummaryItem, InventoryMovement, Flock, Coop, Product } from '../types';
 
+const todayISO = new Date().toISOString().slice(0, 10);
+
 export const Inventory: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'summary' | 'movements' | 'adjustments'>('summary');
@@ -17,7 +19,7 @@ export const Inventory: React.FC = () => {
     flock_id: '',
     coop_id: '',
     product_id: '',
-    usage_date: new Date().toISOString().split('T')[0],
+    usage_date: todayISO,
     quantity: 25,
     notes: '',
   });
@@ -43,7 +45,7 @@ export const Inventory: React.FC = () => {
     product_id: '',
     quantity: 0,
     unit_cost: 0,
-    received_date: new Date().toISOString().split('T')[0],
+    received_date: todayISO,
     notes: '',
     source: '',
   });
@@ -93,7 +95,7 @@ export const Inventory: React.FC = () => {
         flock_id: '',
         coop_id: '',
         product_id: '',
-        usage_date: new Date().toISOString().split('T')[0],
+        usage_date: todayISO,
         quantity: 25,
         notes: '',
       });
@@ -144,7 +146,7 @@ export const Inventory: React.FC = () => {
         product_id: '',
         quantity: 0,
         unit_cost: 0,
-        received_date: new Date().toISOString().split('T')[0],
+        received_date: todayISO,
         notes: '',
         source: '',
       });
@@ -167,8 +169,8 @@ export const Inventory: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Pakan & Persediaan</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="page-title">Pakan & Persediaan</h1>
+          <p className="page-subtitle">
             Satu sumber kebenaran stok fisik (Single Source of Truth) dari mutasi pergerakan barang resmi.
           </p>
         </div>
@@ -197,7 +199,7 @@ export const Inventory: React.FC = () => {
           </button>
           <button
             onClick={() => setShowUsageModal(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
+            className="inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
           >
             <Plus size={16} />
             <span>Catat Pemakaian Pakan</span>
@@ -257,7 +259,7 @@ export const Inventory: React.FC = () => {
 
       {/* TAB 1: RINGKASAN STOK */}
       {activeTab === 'summary' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="table-shell">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -327,7 +329,7 @@ export const Inventory: React.FC = () => {
 
       {/* TAB 2: BUKU MUTASI STOK */}
       {activeTab === 'movements' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="table-shell">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -410,7 +412,7 @@ export const Inventory: React.FC = () => {
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col items-center gap-4">
+          <div className="card p-6 flex flex-col items-center gap-4">
             <SlidersHorizontal size={40} className="text-violet-400" />
             <p className="text-sm text-slate-600 text-center max-w-sm">
               Klik tombol <strong>"Penyesuaian Stok"</strong> di header untuk membuka form penyesuaian stok,

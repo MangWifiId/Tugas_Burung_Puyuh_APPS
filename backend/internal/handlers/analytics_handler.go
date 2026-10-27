@@ -28,56 +28,56 @@ type PeriodInfo struct {
 }
 
 type AnalyticsSummary struct {
-	ActivePopulation   int             `json:"active_population"`
-	TotalEggsProduced  int             `json:"total_eggs_produced"`
-	TotalSaleableEggs  int             `json:"total_saleable_eggs"`
-	TotalDamagedEggs   int             `json:"total_damaged_eggs"`
-	DamagedRatePct     float64         `json:"damaged_rate_pct"`
-	HenDayPct          float64         `json:"hen_day_pct"`
-	TotalFeedKg        decimal.Decimal `json:"total_feed_kg"`
-	DailyFeedIntakeG   float64         `json:"daily_feed_intake_g"`
-	FCRPer100Eggs      float64         `json:"fcr_per_100_eggs"`
-	FCRPerTray         float64         `json:"fcr_per_tray"`
-	FeedPricePerKg     decimal.Decimal `json:"feed_price_per_kg"`
-	TotalFeedCost      decimal.Decimal `json:"total_feed_cost"`
-	FeedCostPerEgg     decimal.Decimal `json:"feed_cost_per_egg"`
-	FeedCostPerTray    decimal.Decimal `json:"feed_cost_per_tray"`
-	AvgEggPrice        decimal.Decimal `json:"avg_egg_price"`
-	GrossMarginPerEgg  decimal.Decimal `json:"gross_margin_per_egg"`
-	GrossMarginPct     float64         `json:"gross_margin_pct"`
-	TotalMortality     int             `json:"total_mortality"`
-	MortalityRatePct   float64         `json:"mortality_rate_pct"`
-	PerformanceStatus  string          `json:"performance_status"`
-	PerformanceLabel   string          `json:"performance_label"`
+	ActivePopulation  int             `json:"active_population"`
+	TotalEggsProduced int             `json:"total_eggs_produced"`
+	TotalSaleableEggs int             `json:"total_saleable_eggs"`
+	TotalDamagedEggs  int             `json:"total_damaged_eggs"`
+	DamagedRatePct    float64         `json:"damaged_rate_pct"`
+	HenDayPct         float64         `json:"hen_day_pct"`
+	TotalFeedKg       decimal.Decimal `json:"total_feed_kg"`
+	DailyFeedIntakeG  float64         `json:"daily_feed_intake_g"`
+	FCRPer100Eggs     float64         `json:"fcr_per_100_eggs"`
+	FCRPerTray        float64         `json:"fcr_per_tray"`
+	FeedPricePerKg    decimal.Decimal `json:"feed_price_per_kg"`
+	TotalFeedCost     decimal.Decimal `json:"total_feed_cost"`
+	FeedCostPerEgg    decimal.Decimal `json:"feed_cost_per_egg"`
+	FeedCostPerTray   decimal.Decimal `json:"feed_cost_per_tray"`
+	AvgEggPrice       decimal.Decimal `json:"avg_egg_price"`
+	GrossMarginPerEgg decimal.Decimal `json:"gross_margin_per_egg"`
+	GrossMarginPct    float64         `json:"gross_margin_pct"`
+	TotalMortality    int             `json:"total_mortality"`
+	MortalityRatePct  float64         `json:"mortality_rate_pct"`
+	PerformanceStatus string          `json:"performance_status"`
+	PerformanceLabel  string          `json:"performance_label"`
 }
 
 type DailyAnalyticsTrend struct {
-	Date               string  `json:"date"`
-	EggsProduced       int     `json:"eggs_produced"`
-	SaleableEggs       int     `json:"saleable_eggs"`
-	DamagedEggs        int     `json:"damaged_eggs"`
-	HenDayPct          float64 `json:"hen_day_pct"`
-	FeedKg             float64 `json:"feed_kg"`
-	DailyFeedPerBirdG  float64 `json:"daily_feed_per_bird_g"`
-	FCRPer100          float64 `json:"fcr_per_100"`
+	Date              string  `json:"date"`
+	EggsProduced      int     `json:"eggs_produced"`
+	SaleableEggs      int     `json:"saleable_eggs"`
+	DamagedEggs       int     `json:"damaged_eggs"`
+	HenDayPct         float64 `json:"hen_day_pct"`
+	FeedKg            float64 `json:"feed_kg"`
+	DailyFeedPerBirdG float64 `json:"daily_feed_per_bird_g"`
+	FCRPer100         float64 `json:"fcr_per_100"`
 }
 
 type CoopPerformanceItem struct {
-	CoopID        uuid.UUID       `json:"coop_id"`
-	CoopCode      string          `json:"coop_code"`
-	CoopName      string          `json:"coop_name"`
-	Capacity      int             `json:"capacity"`
-	Population    int             `json:"population"`
-	EggsProduced  int             `json:"eggs_produced"`
-	SaleableEggs  int             `json:"saleable_eggs"`
-	HenDayPct     float64         `json:"hen_day_pct"`
-	FeedKg        float64         `json:"feed_kg"`
-	FeedPerBirdG  float64         `json:"feed_per_bird_g"`
-	FCRPer100     float64         `json:"fcr_per_100"`
-	FeedCostEst   decimal.Decimal `json:"feed_cost_est"`
-	CostPerEgg    decimal.Decimal `json:"cost_per_egg"`
-	Status        string          `json:"status"`
-	StatusLabel   string          `json:"status_label"`
+	CoopID       uuid.UUID       `json:"coop_id"`
+	CoopCode     string          `json:"coop_code"`
+	CoopName     string          `json:"coop_name"`
+	Capacity     int             `json:"capacity"`
+	Population   int             `json:"population"`
+	EggsProduced int             `json:"eggs_produced"`
+	SaleableEggs int             `json:"saleable_eggs"`
+	HenDayPct    float64         `json:"hen_day_pct"`
+	FeedKg       float64         `json:"feed_kg"`
+	FeedPerBirdG float64         `json:"feed_per_bird_g"`
+	FCRPer100    float64         `json:"fcr_per_100"`
+	FeedCostEst  decimal.Decimal `json:"feed_cost_est"`
+	CostPerEgg   decimal.Decimal `json:"cost_per_egg"`
+	Status       string          `json:"status"`
+	StatusLabel  string          `json:"status_label"`
 }
 
 type PerformanceInsight struct {
@@ -559,27 +559,27 @@ func (h *AnalyticsHandler) GetPerformanceAnalytics(c *gin.Context) {
 			DaysCount: daysCount,
 		},
 		Summary: AnalyticsSummary{
-			ActivePopulation:   activePopulation,
-			TotalEggsProduced:  totalEggsProduced,
-			TotalSaleableEggs:  totalSaleableEggs,
-			TotalDamagedEggs:   totalDamagedEggs,
-			DamagedRatePct:     round(damagedRatePct, 2),
-			HenDayPct:          round(henDayPct, 1),
-			TotalFeedKg:        totalFeedKg,
-			DailyFeedIntakeG:   round(dailyFeedIntakeG, 1),
-			FCRPer100Eggs:      round(fcrPer100, 2),
-			FCRPerTray:         round(fcrPerTray, 2),
-			FeedPricePerKg:     feedPricePerKg,
-			TotalFeedCost:      totalFeedCost,
-			FeedCostPerEgg:     feedCostPerEgg,
-			FeedCostPerTray:    feedCostPerTray,
-			AvgEggPrice:        avgEggPrice,
-			GrossMarginPerEgg:  grossMarginPerEgg,
-			GrossMarginPct:     round(grossMarginPct, 1),
-			TotalMortality:     totalMortality,
-			MortalityRatePct:   round(mortalityRatePct, 2),
-			PerformanceStatus:  perfStatus,
-			PerformanceLabel:   perfLabel,
+			ActivePopulation:  activePopulation,
+			TotalEggsProduced: totalEggsProduced,
+			TotalSaleableEggs: totalSaleableEggs,
+			TotalDamagedEggs:  totalDamagedEggs,
+			DamagedRatePct:    round(damagedRatePct, 2),
+			HenDayPct:         round(henDayPct, 1),
+			TotalFeedKg:       totalFeedKg,
+			DailyFeedIntakeG:  round(dailyFeedIntakeG, 1),
+			FCRPer100Eggs:     round(fcrPer100, 2),
+			FCRPerTray:        round(fcrPerTray, 2),
+			FeedPricePerKg:    feedPricePerKg,
+			TotalFeedCost:     totalFeedCost,
+			FeedCostPerEgg:    feedCostPerEgg,
+			FeedCostPerTray:   feedCostPerTray,
+			AvgEggPrice:       avgEggPrice,
+			GrossMarginPerEgg: grossMarginPerEgg,
+			GrossMarginPct:    round(grossMarginPct, 1),
+			TotalMortality:    totalMortality,
+			MortalityRatePct:  round(mortalityRatePct, 2),
+			PerformanceStatus: perfStatus,
+			PerformanceLabel:  perfLabel,
 		},
 		DailyTrends:    dailyTrends,
 		CoopComparison: coopComparison,

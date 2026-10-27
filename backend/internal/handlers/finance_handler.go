@@ -24,8 +24,8 @@ func NewFinanceHandler() *FinanceHandler {
 
 type InvoiceDetailResponse struct {
 	models.CustomerInvoice
-	CustomerName   string          `json:"customer_name"`
-	SaleNumber     string          `json:"sale_number"`
+	CustomerName    string          `json:"customer_name"`
+	SaleNumber      string          `json:"sale_number"`
 	RemainingUnpaid decimal.Decimal `json:"remaining_unpaid"`
 }
 
@@ -113,6 +113,11 @@ func (h *FinanceHandler) RecordCustomerPayment(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	if _, ok := findCustomer(db, custUUID); !ok {
+		response.NotFound(c, "Pelanggan tidak ditemukan")
+		return
+	}
+
 	// Verifikasi rekening kas
 	cashAccIdx := -1
 	for i, ca := range db.CashAccounts {
@@ -134,6 +139,53 @@ func (h *FinanceHandler) RecordCustomerPayment(c *gin.Context) {
 	if !totalAlloc.Equal(req.Amount) {
 		response.BadRequest(c, fmt.Sprintf("Total nominal alokasi (%s) tidak sama dengan nominal pembayaran (%s)", totalAlloc.String(), req.Amount.String()))
 		return
+	}
+
+	// Validasi setiap alokasi: nominal positif, faktur ada, milik pelanggan ini,
+	// dan tidak melebihi sisa piutang (termasuk jika satu faktur dialokasikan
+	// lebih dari sekali dalam request yang sama).
+	remainingByInvoice := make(map[uuid.UUID]decimal.Decimal)
+	for _, al := range req.Allocations {
+		if !al.Amount.GreaterThan(decimal.Zero) {
+			response.BadRequest(c, "Nominal alokasi harus lebih besar dari 0")
+			return
+		}
+		invUUID, err := uuid.Parse(al.InvoiceID)
+		if err != nil {
+			response.BadRequest(c, "ID faktur pada alokasi tidak valid")
+			return
+		}
+
+		invoiceFound := false
+		remaining, seen := remainingByInvoice[invUUID]
+		for i := range db.CustomerInvoices {
+			inv := db.CustomerInvoices[i]
+			if inv.ID != invUUID {
+				continue
+			}
+			if inv.CustomerID != custUUID {
+				response.BadRequest(c, "Faktur yang dialokasikan bukan milik pelanggan ini")
+				return
+			}
+			if inv.Status == "cancelled" {
+				response.Unprocessable(c, "Faktur yang dibatalkan tidak dapat menerima pembayaran")
+				return
+			}
+			if !seen {
+				remaining = inv.TotalAmount.Sub(inv.PaidAmount)
+			}
+			invoiceFound = true
+			break
+		}
+		if !invoiceFound {
+			response.NotFound(c, "Faktur pada alokasi tidak ditemukan")
+			return
+		}
+		if al.Amount.GreaterThan(remaining) {
+			response.Unprocessable(c, fmt.Sprintf("Nominal alokasi (%s) melebihi sisa piutang faktur (%s)", al.Amount.String(), remaining.String()))
+			return
+		}
+		remainingByInvoice[invUUID] = remaining.Sub(al.Amount)
 	}
 
 	now := time.Now().UTC()
@@ -200,7 +252,10 @@ func (h *FinanceHandler) RecordCustomerPayment(c *gin.Context) {
 		Description:     fmt.Sprintf("Penerimaan pembayaran piutang no. %s", payNumber),
 	})
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pembayaran pelanggan berhasil dicatat dan kas bertambah", newPayment)
 }
@@ -286,6 +341,11 @@ func (h *FinanceHandler) RecordSupplierPayment(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	if _, ok := findSupplier(db, suppUUID); !ok {
+		response.NotFound(c, "Pemasok tidak ditemukan")
+		return
+	}
+
 	cashAccIdx := -1
 	for i, ca := range db.CashAccounts {
 		if ca.ID == cashAccUUID {
@@ -303,6 +363,59 @@ func (h *FinanceHandler) RecordSupplierPayment(c *gin.Context) {
 		response.Unprocessable(c, fmt.Sprintf("Saldo kas tidak mencukupi untuk pembayaran (tersedia: %s, dibutuhkan: %s)",
 			db.CashAccounts[cashAccIdx].CurrentBalance.String(), req.Amount.String()))
 		return
+	}
+
+	totalAlloc := decimal.Zero
+	for _, al := range req.Allocations {
+		totalAlloc = totalAlloc.Add(al.Amount)
+	}
+	if !totalAlloc.Equal(req.Amount) {
+		response.BadRequest(c, fmt.Sprintf("Total nominal alokasi (%s) tidak sama dengan nominal pembayaran (%s)", totalAlloc.String(), req.Amount.String()))
+		return
+	}
+
+	remainingByBill := make(map[uuid.UUID]decimal.Decimal)
+	for _, al := range req.Allocations {
+		if !al.Amount.GreaterThan(decimal.Zero) {
+			response.BadRequest(c, "Nominal alokasi harus lebih besar dari 0")
+			return
+		}
+		billUUID, err := uuid.Parse(al.BillID)
+		if err != nil {
+			response.BadRequest(c, "ID tagihan pada alokasi tidak valid")
+			return
+		}
+
+		billFound := false
+		remaining, seen := remainingByBill[billUUID]
+		for i := range db.SupplierBills {
+			bill := db.SupplierBills[i]
+			if bill.ID != billUUID {
+				continue
+			}
+			if bill.SupplierID != suppUUID {
+				response.BadRequest(c, "Tagihan yang dialokasikan bukan milik pemasok ini")
+				return
+			}
+			if bill.Status == "cancelled" {
+				response.Unprocessable(c, "Tagihan yang dibatalkan tidak dapat menerima pembayaran")
+				return
+			}
+			if !seen {
+				remaining = bill.TotalAmount.Sub(bill.PaidAmount)
+			}
+			billFound = true
+			break
+		}
+		if !billFound {
+			response.NotFound(c, "Tagihan pada alokasi tidak ditemukan")
+			return
+		}
+		if al.Amount.GreaterThan(remaining) {
+			response.Unprocessable(c, fmt.Sprintf("Nominal alokasi (%s) melebihi sisa utang tagihan (%s)", al.Amount.String(), remaining.String()))
+			return
+		}
+		remainingByBill[billUUID] = remaining.Sub(al.Amount)
 	}
 
 	now := time.Now().UTC()
@@ -369,7 +482,10 @@ func (h *FinanceHandler) RecordSupplierPayment(c *gin.Context) {
 		Description:     fmt.Sprintf("Pembayaran utang pemasok no. %s", payNumber),
 	})
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pembayaran tagihan pemasok berhasil dicatat dan kas berkurang", newPayment)
 }
@@ -502,7 +618,10 @@ func (h *FinanceHandler) RecordExpense(c *gin.Context) {
 		Description:     fmt.Sprintf("Beban operasional [%s]: %s (%s)", req.Category, req.Notes, expNumber),
 	})
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pengeluaran operasional berhasil dicatat", newExpense)
 }

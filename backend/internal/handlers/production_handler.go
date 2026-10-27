@@ -70,6 +70,10 @@ func (h *ProductionHandler) RecordProduction(c *gin.Context) {
 		response.BadRequest(c, "Jumlah telur rusak tidak boleh melebihi total telur yang diambil")
 		return
 	}
+	if req.TotalEggs <= 0 {
+		response.BadRequest(c, "Total telur yang diambil harus lebih besar dari 0")
+		return
+	}
 
 	recDate, err := time.Parse("2006-01-02", req.RecordDate)
 	if err != nil {
@@ -92,6 +96,23 @@ func (h *ProductionHandler) RecordProduction(c *gin.Context) {
 	db := database.DBInstance
 	db.Lock()
 	defer db.Unlock()
+
+	if _, ok := findFlock(db, flockUUID); !ok {
+		response.NotFound(c, "Kelompok puyuh tidak ditemukan")
+		return
+	}
+	if _, ok := findCoop(db, coopUUID); !ok {
+		response.NotFound(c, "Kandang tidak ditemukan")
+		return
+	}
+
+	for _, existing := range db.ProductionRecords {
+		if existing.FlockID == flockUUID && existing.CoopID == coopUUID &&
+			existing.RecordDate.Format("2006-01-02") == recDate.Format("2006-01-02") {
+			response.Conflict(c, "Produksi untuk kelompok dan kandang ini pada tanggal tersebut sudah dicatat")
+			return
+		}
+	}
 
 	var farmID uuid.UUID
 	if len(db.Farms) > 0 {
@@ -140,7 +161,10 @@ func (h *ProductionHandler) RecordProduction(c *gin.Context) {
 		})
 	}
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Pencatatan produksi gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pencatatan produksi telur berhasil disimpan dan stok telur diperbarui", newRecord)
 }

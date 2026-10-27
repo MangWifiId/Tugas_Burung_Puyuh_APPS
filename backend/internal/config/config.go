@@ -8,19 +8,21 @@ import (
 )
 
 type Config struct {
-	Port           string
-	GinMode        string
-	AppEnv         string
-	DatabaseURL    string
-	DBHost         string
-	DBPort         string
-	DBUser         string
-	DBPassword     string
-	DBName         string
-	DBSSLMode      string
-	JWTSecret      string
-	JWTExpiresHours int
-	CORSOrigins    string
+	Port              string
+	GinMode           string
+	AppEnv            string
+	DataDir           string
+	DatabaseURL       string
+	DBHost            string
+	DBPort            string
+	DBUser            string
+	DBPassword        string
+	DBName            string
+	DBSSLMode         string
+	JWTSecret         string
+	JWTExpiresHours   int
+	CORSOrigins       string
+	AllowRegistration bool
 }
 
 func LoadConfig() *Config {
@@ -40,20 +42,34 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		Port:           port,
-		GinMode:        ginMode,
-		AppEnv:         appEnv,
-		DatabaseURL:    getEnv("DATABASE_URL", ""),
-		DBHost:         getEnv("DB_HOST", "localhost"),
-		DBPort:         getEnv("DB_PORT", "5432"),
-		DBUser:         getEnv("DB_USER", "postgres"),
-		DBPassword:     getEnv("DB_PASSWORD", "postgres"),
-		DBName:         getEnv("DB_NAME", "quail_management"),
-		DBSSLMode:      getEnv("DB_SSLMODE", "disable"),
-		JWTSecret:      jwtSecret,
-		JWTExpiresHours: jwtHours,
-		CORSOrigins:    getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"),
+		Port:              port,
+		GinMode:           ginMode,
+		AppEnv:            appEnv,
+		DataDir:           getEnv("DATA_DIR", "data"),
+		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		DBHost:            getEnv("DB_HOST", "localhost"),
+		DBPort:            getEnv("DB_PORT", "5432"),
+		DBUser:            getEnv("DB_USER", "postgres"),
+		DBPassword:        getEnv("DB_PASSWORD", "postgres"),
+		DBName:            getEnv("DB_NAME", "quail_management"),
+		DBSSLMode:         getEnv("DB_SSLMODE", "disable"),
+		JWTSecret:         jwtSecret,
+		JWTExpiresHours:   jwtHours,
+		CORSOrigins:       getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"),
+		AllowRegistration: getEnvBool("ALLOW_REGISTRATION", false),
 	}
+}
+
+func getEnvBool(key string, defaultVal bool) bool {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.ParseBool(val)
+	if err != nil {
+		return defaultVal
+	}
+	return parsed
 }
 
 func getEnv(key, defaultVal string) string {

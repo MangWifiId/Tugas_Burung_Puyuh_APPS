@@ -71,13 +71,13 @@ func (h *SalesHandler) ListSales(c *gin.Context) {
 }
 
 type CreateSaleRequest struct {
-	CustomerID     string                 `json:"customer_id" binding:"required"`
-	SaleDate       string                 `json:"sale_date" binding:"required"`
-	DiscountAmount decimal.Decimal        `json:"discount_amount"`
-	ShippingFee    decimal.Decimal        `json:"shipping_fee"`
-	OtherFees      decimal.Decimal        `json:"other_fees"`
-	Notes          string                 `json:"notes"`
-	AutoPost       bool                   `json:"auto_post"` // If true, instantly posted
+	CustomerID     string                  `json:"customer_id" binding:"required"`
+	SaleDate       string                  `json:"sale_date" binding:"required"`
+	DiscountAmount decimal.Decimal         `json:"discount_amount"`
+	ShippingFee    decimal.Decimal         `json:"shipping_fee"`
+	OtherFees      decimal.Decimal         `json:"other_fees"`
+	Notes          string                  `json:"notes"`
+	AutoPost       bool                    `json:"auto_post"` // If true, instantly posted
 	Items          []CreateSaleItemRequest `json:"items" binding:"required,min=1"`
 }
 
@@ -113,6 +113,11 @@ func (h *SalesHandler) CreateSale(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	if _, ok := findCustomer(db, custUUID); !ok {
+		response.NotFound(c, "Pelanggan tidak ditemukan")
+		return
+	}
+
 	var farmID uuid.UUID
 	if len(db.Farms) > 0 {
 		farmID = db.Farms[0].ID
@@ -137,6 +142,24 @@ func (h *SalesHandler) CreateSale(c *gin.Context) {
 			return
 		}
 
+		product, ok := findProduct(db, prodUUID)
+		if !ok {
+			response.NotFound(c, "Produk pada item penjualan tidak ditemukan")
+			return
+		}
+		if !it.Quantity.GreaterThan(decimal.Zero) {
+			response.BadRequest(c, "Jumlah barang pada penjualan harus lebih besar dari 0")
+			return
+		}
+		if it.UnitPrice.IsNegative() || it.DiscountAmount.IsNegative() {
+			response.BadRequest(c, "Harga dan diskon tidak boleh bernilai negatif")
+			return
+		}
+		if _, err := toBaseUnit(db, product, unitUUID, it.Quantity); err != nil {
+			response.BadRequest(c, err.Error())
+			return
+		}
+
 		lineSubtotal := it.Quantity.Mul(it.UnitPrice).Sub(it.DiscountAmount)
 		if lineSubtotal.IsNegative() {
 			lineSubtotal = decimal.Zero
@@ -154,6 +177,11 @@ func (h *SalesHandler) CreateSale(c *gin.Context) {
 			Subtotal:       lineSubtotal,
 			Notes:          it.Notes,
 		})
+	}
+
+	if req.DiscountAmount.IsNegative() || req.ShippingFee.IsNegative() || req.OtherFees.IsNegative() {
+		response.BadRequest(c, "Diskon dan biaya tambahan tidak boleh bernilai negatif")
+		return
 	}
 
 	grandTotal := subtotal.Sub(req.DiscountAmount).Add(req.ShippingFee).Add(req.OtherFees)
@@ -178,18 +206,24 @@ func (h *SalesHandler) CreateSale(c *gin.Context) {
 	}
 
 	db.Sales = append(db.Sales, newSale)
+	saleIdx := len(db.Sales) - 1
 
 	// Jika AutoPost dipilih (Alur Fleksibel Langsung)
 	if req.AutoPost {
-		if err := executePostSale(db, &newSale, farmID, now); err != nil {
+		if err := executePostSale(db, &db.Sales[saleIdx], farmID, now); err != nil {
+			// Tidak ada mutasi stok yang terjadi jika validasi gagal; buang draft.
+			db.Sales = append(db.Sales[:saleIdx], db.Sales[saleIdx+1:]...)
 			response.Unprocessable(c, err.Error())
 			return
 		}
 	}
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Transaksi gagal disimpan, silakan coba lagi")
+		return
+	}
 
-	response.JSON(c, http.StatusCreated, "Transaksi penjualan berhasil disimpan", newSale)
+	response.JSON(c, http.StatusCreated, "Transaksi penjualan berhasil disimpan", db.Sales[saleIdx])
 }
 
 func (h *SalesHandler) PostSale(c *gin.Context) {
@@ -232,21 +266,56 @@ func (h *SalesHandler) PostSale(c *gin.Context) {
 		return
 	}
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Penjualan gagal disahkan karena masalah penyimpanan")
+		return
+	}
 	response.JSON(c, http.StatusOK, "Penjualan berhasil disahkan (stok berkurang dan faktur tagihan terbit)", db.Sales[saleIdx])
 }
 
 func executePostSale(db *database.JSONDatabase, sale *models.Sale, farmID uuid.UUID, now time.Time) error {
-	// 1. Verifikasi kecukupan stok untuk setiap item
-	stockMap := make(map[uuid.UUID]decimal.Decimal)
-	for _, mov := range db.InventoryMovements {
-		stockMap[mov.ProductID] = stockMap[mov.ProductID].Add(mov.Quantity)
+	// 1. Konversi seluruh item ke satuan dasar produk lalu agregasi permintaan
+	//    per produk. Ini mencegah dua baris produk yang sama lolos cek stok.
+	type convertedItem struct {
+		item    models.SaleItem
+		baseQty decimal.Decimal
+		cost    decimal.Decimal
 	}
 
+	converted := make([]convertedItem, 0, len(sale.Items))
+	demand := make(map[uuid.UUID]decimal.Decimal)
+
 	for _, item := range sale.Items {
-		avail := stockMap[item.ProductID]
-		if avail.LessThan(item.Quantity) {
-			return fmt.Errorf("stok barang tidak mencukupi untuk dikirim (tersedia: %s, diminta: %s)", avail.String(), item.Quantity.String())
+		product, ok := findProduct(db, item.ProductID)
+		if !ok {
+			return fmt.Errorf("produk pada transaksi penjualan tidak ditemukan")
+		}
+		if !item.Quantity.GreaterThan(decimal.Zero) {
+			return fmt.Errorf("jumlah barang pada penjualan harus lebih besar dari 0")
+		}
+
+		baseQty, err := toBaseUnit(db, product, item.UnitID, item.Quantity)
+		if err != nil {
+			return err
+		}
+
+		demand[item.ProductID] = demand[item.ProductID].Add(baseQty)
+		converted = append(converted, convertedItem{
+			item:    item,
+			baseQty: baseQty,
+			cost:    averageUnitCost(db, item.ProductID),
+		})
+	}
+
+	for productID, required := range demand {
+		available := currentStock(db, productID)
+		if available.LessThan(required) {
+			product, _ := findProduct(db, productID)
+			name := "produk"
+			if product != nil {
+				name = product.Name
+			}
+			return fmt.Errorf("stok %s tidak mencukupi (tersedia: %s, diminta: %s)", name, available.String(), required.String())
 		}
 	}
 
@@ -254,17 +323,23 @@ func executePostSale(db *database.JSONDatabase, sale *models.Sale, farmID uuid.U
 	sale.Status = "posted"
 	sale.UpdatedAt = now
 
-	// 3. Single Source of Truth: Pengurangan stok riil di inventory_movements
-	for _, item := range sale.Items {
+	// 3. Single Source of Truth: pengurangan stok dalam satuan default produk
+	for _, c := range converted {
+		product, _ := findProduct(db, c.item.ProductID)
+		baseUnitID := c.item.UnitID
+		if product != nil {
+			baseUnitID = product.DefaultUnitID
+		}
+
 		db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
 			BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
 			FarmID:        farmID,
-			ProductID:     item.ProductID,
-			UnitID:        item.UnitID,
+			ProductID:     c.item.ProductID,
+			UnitID:        baseUnitID,
 			MovementDate:  sale.SaleDate,
 			MovementType:  "sales_out",
-			Quantity:      item.Quantity.Neg(), // Nilai negatif untuk penjualan/pengiriman keluar
-			UnitCost:      item.UnitPrice,
+			Quantity:      c.baseQty.Neg(),
+			UnitCost:      c.cost,
 			ReferenceType: "sales",
 			ReferenceID:   sale.ID,
 			Notes:         fmt.Sprintf("Penjualan no. %s", sale.SaleNumber),

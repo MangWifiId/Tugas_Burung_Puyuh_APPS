@@ -71,13 +71,13 @@ func (h *PurchasingHandler) ListPurchases(c *gin.Context) {
 }
 
 type CreatePurchaseRequest struct {
-	SupplierID     string                     `json:"supplier_id" binding:"required"`
-	PurchaseDate   string                     `json:"purchase_date" binding:"required"`
-	DiscountAmount decimal.Decimal            `json:"discount_amount"`
-	ShippingFee    decimal.Decimal            `json:"shipping_fee"`
-	OtherFees      decimal.Decimal            `json:"other_fees"`
-	Notes          string                     `json:"notes"`
-	AutoPost       bool                       `json:"auto_post"`
+	SupplierID     string                      `json:"supplier_id" binding:"required"`
+	PurchaseDate   string                      `json:"purchase_date" binding:"required"`
+	DiscountAmount decimal.Decimal             `json:"discount_amount"`
+	ShippingFee    decimal.Decimal             `json:"shipping_fee"`
+	OtherFees      decimal.Decimal             `json:"other_fees"`
+	Notes          string                      `json:"notes"`
+	AutoPost       bool                        `json:"auto_post"`
 	Items          []CreatePurchaseItemRequest `json:"items" binding:"required,min=1"`
 }
 
@@ -113,6 +113,11 @@ func (h *PurchasingHandler) CreatePurchase(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	if _, ok := findSupplier(db, suppUUID); !ok {
+		response.NotFound(c, "Pemasok tidak ditemukan")
+		return
+	}
+
 	var farmID uuid.UUID
 	if len(db.Farms) > 0 {
 		farmID = db.Farms[0].ID
@@ -137,6 +142,24 @@ func (h *PurchasingHandler) CreatePurchase(c *gin.Context) {
 			return
 		}
 
+		product, ok := findProduct(db, prodUUID)
+		if !ok {
+			response.NotFound(c, "Produk pada item pembelian tidak ditemukan")
+			return
+		}
+		if !it.Quantity.GreaterThan(decimal.Zero) {
+			response.BadRequest(c, "Jumlah barang pada pembelian harus lebih besar dari 0")
+			return
+		}
+		if it.UnitPrice.IsNegative() || it.DiscountAmount.IsNegative() {
+			response.BadRequest(c, "Harga dan diskon tidak boleh bernilai negatif")
+			return
+		}
+		if _, err := toBaseUnit(db, product, unitUUID, it.Quantity); err != nil {
+			response.BadRequest(c, err.Error())
+			return
+		}
+
 		lineSubtotal := it.Quantity.Mul(it.UnitPrice).Sub(it.DiscountAmount)
 		if lineSubtotal.IsNegative() {
 			lineSubtotal = decimal.Zero
@@ -154,6 +177,11 @@ func (h *PurchasingHandler) CreatePurchase(c *gin.Context) {
 			Subtotal:       lineSubtotal,
 			Notes:          it.Notes,
 		})
+	}
+
+	if req.DiscountAmount.IsNegative() || req.ShippingFee.IsNegative() || req.OtherFees.IsNegative() {
+		response.BadRequest(c, "Diskon dan biaya tambahan tidak boleh bernilai negatif")
+		return
 	}
 
 	grandTotal := subtotal.Sub(req.DiscountAmount).Add(req.ShippingFee).Add(req.OtherFees)
@@ -177,14 +205,22 @@ func (h *PurchasingHandler) CreatePurchase(c *gin.Context) {
 		Items:          items,
 	}
 	db.Purchases = append(db.Purchases, newPurchase)
+	purIdx := len(db.Purchases) - 1
 
 	if req.AutoPost {
-		executePostPurchase(db, &newPurchase, farmID, now)
+		if err := executePostPurchase(db, &db.Purchases[purIdx], farmID, now); err != nil {
+			db.Purchases = append(db.Purchases[:purIdx], db.Purchases[purIdx+1:]...)
+			response.Unprocessable(c, err.Error())
+			return
+		}
 	}
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Transaksi pembelian gagal disimpan, silakan coba lagi")
+		return
+	}
 
-	response.JSON(c, http.StatusCreated, "Transaksi pembelian berhasil disimpan", newPurchase)
+	response.JSON(c, http.StatusCreated, "Transaksi pembelian berhasil disimpan", db.Purchases[purIdx])
 }
 
 func (h *PurchasingHandler) PostPurchase(c *gin.Context) {
@@ -222,27 +258,66 @@ func (h *PurchasingHandler) PostPurchase(c *gin.Context) {
 		farmID = db.Farms[0].ID
 	}
 
-	executePostPurchase(db, &db.Purchases[purIdx], farmID, now)
-	_ = db.Persist()
+	if err := executePostPurchase(db, &db.Purchases[purIdx], farmID, now); err != nil {
+		response.Unprocessable(c, err.Error())
+		return
+	}
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Pembelian gagal disahkan karena masalah penyimpanan")
+		return
+	}
 
 	response.JSON(c, http.StatusOK, "Pembelian berhasil disahkan (stok bertambah dan tagihan pemasok terbit)", db.Purchases[purIdx])
 }
 
-func executePostPurchase(db *database.JSONDatabase, purchase *models.Purchase, farmID uuid.UUID, now time.Time) {
+func executePostPurchase(db *database.JSONDatabase, purchase *models.Purchase, farmID uuid.UUID, now time.Time) error {
+	if purchase.Status == "posted" {
+		return fmt.Errorf("transaksi pembelian ini sudah disahkan (posted)")
+	}
+
+	// Validasi & konversi seluruh item ke satuan default produk terlebih dahulu
+	// agar tidak ada stok yang bertambah jika salah satu item tidak valid.
+	type convertedItem struct {
+		item    models.PurchaseItem
+		baseQty decimal.Decimal
+	}
+	converted := make([]convertedItem, 0, len(purchase.Items))
+
+	for _, item := range purchase.Items {
+		product, ok := findProduct(db, item.ProductID)
+		if !ok {
+			return fmt.Errorf("produk pada transaksi pembelian tidak ditemukan")
+		}
+		if !item.Quantity.GreaterThan(decimal.Zero) {
+			return fmt.Errorf("jumlah barang pada pembelian harus lebih besar dari 0")
+		}
+		baseQty, err := toBaseUnit(db, product, item.UnitID, item.Quantity)
+		if err != nil {
+			return err
+		}
+		converted = append(converted, convertedItem{item: item, baseQty: baseQty})
+	}
+
 	purchase.Status = "posted"
 	purchase.UpdatedAt = now
 
-	// 1. Single Source of Truth: Menambah stok di inventory_movements
-	for _, item := range purchase.Items {
+	// 1. Single Source of Truth: menambah stok dalam satuan default produk
+	for _, c := range converted {
+		product, _ := findProduct(db, c.item.ProductID)
+		baseUnitID := c.item.UnitID
+		if product != nil {
+			baseUnitID = product.DefaultUnitID
+		}
+
 		db.InventoryMovements = append(db.InventoryMovements, models.InventoryMovement{
 			BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
 			FarmID:        farmID,
-			ProductID:     item.ProductID,
-			UnitID:        item.UnitID,
+			ProductID:     c.item.ProductID,
+			UnitID:        baseUnitID,
 			MovementDate:  purchase.PurchaseDate,
 			MovementType:  "purchase_in",
-			Quantity:      item.Quantity, // Nilai positif untuk penerimaan stok
-			UnitCost:      item.UnitPrice,
+			Quantity:      c.baseQty, // Nilai positif untuk penerimaan stok
+			UnitCost:      c.item.UnitPrice,
 			ReferenceType: "purchases",
 			ReferenceID:   purchase.ID,
 			Notes:         fmt.Sprintf("Penerimaan barang dari PO %s", purchase.PurchaseNumber),
@@ -273,4 +348,6 @@ func executePostPurchase(db *database.JSONDatabase, purchase *models.Purchase, f
 		Status:        "unpaid",
 	}
 	db.SupplierBills = append(db.SupplierBills, newBill)
+
+	return nil
 }

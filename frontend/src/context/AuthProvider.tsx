@@ -1,19 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import type { User, Farm } from '../types';
 import { api } from '../services/api';
-
-interface AuthContextType {
-  user: User | null;
-  farm: Farm | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (token: string, user: User) => void;
-  logout: () => void;
-  refreshProfile: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from './auth-context';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
@@ -22,15 +10,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : null;
   });
   const [farm, setFarm] = useState<Farm | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(() =>
+    Boolean(localStorage.getItem('token'))
+  );
 
-  const fetchProfile = async () => {
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+    setFarm(null);
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
     if (!token) {
-      setIsLoading(false);
       return;
     }
     try {
-      const res = await api.get<{ id: string; name: string; email: string; role: string; farm?: Farm }>('/auth/me');
+      const res = await api.get<{
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        farm?: Farm;
+      }>('/auth/me');
       setUser({
         id: res.id,
         name: res.name,
@@ -47,25 +50,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, logout]);
 
   useEffect(() => {
+    // setIsLoading dipanggil setelah await, bukan sinkron di dalam effect.
+    // oxlint-disable-next-line react/set-state-in-effect
     fetchProfile();
-  }, [token]);
+  }, [fetchProfile]);
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-    setFarm(null);
   };
 
   return (
@@ -84,12 +81,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

@@ -25,7 +25,7 @@ func main() {
 	}
 
 	// Inisialisasi JSON File Database
-	jdb, err := database.InitJSONDB("data")
+	jdb, err := database.InitJSONDB(cfg.DataDir)
 	if err != nil {
 		log.Fatalf("Gagal inisialisasi basis data JSON: %v", err)
 	}
@@ -33,7 +33,7 @@ func main() {
 
 	// Cek dan sambungkan ke database PostgreSQL jika dikonfigurasi
 	dbMode := "json_file_storage"
-	dbDetail := "backend/data/database.json"
+	dbDetail := filepath.Join(cfg.DataDir, "database.json")
 
 	if cfg.DatabaseURL != "" || (cfg.DBHost != "" && cfg.DBHost != "localhost") {
 		gormDB, err := database.Connect(cfg)
@@ -45,16 +45,20 @@ func main() {
 				log.Printf("⚠️ Gagal migrasi skema PostgreSQL: %v\n", err)
 			} else {
 				// Sinkronkan seluruh data ke PostgreSQL
-				_ = database.SyncDataToPostgres(gormDB, jdb)
+				if err := database.SyncDataToPostgres(gormDB, jdb); err != nil {
+					log.Printf("⚠️ Sinkronisasi awal ke PostgreSQL tidak sepenuhnya berhasil: %v\n", err)
+				}
 			}
-			dbMode = "postgresql"
-			dbDetail = "PostgreSQL Database Connected & Synchronized"
+			dbMode = "postgresql_mirror"
+			dbDetail = "PostgreSQL terhubung; data utama tetap JSON (mode mirror)"
 			if cfg.DatabaseURL != "" {
-				dbDetail = "PostgreSQL Cloud (Connected via DATABASE_URL)"
+				dbDetail = "PostgreSQL Cloud terhubung via DATABASE_URL; data utama JSON"
 			}
 		}
-	} else if cfg.DatabaseURL != "" {
-		log.Println("DATABASE_URL ditemukan di konfigurasi.")
+	}
+
+	if cfg.GinMode == "release" && cfg.JWTSecret == "super_secret_jwt_key_default_development" {
+		log.Println("⚠️ PERINGATAN: JWT_SECRET masih memakai nilai default. Set JWT_SECRET di environment produksi!")
 	}
 
 	router := gin.New()
@@ -67,11 +71,11 @@ func main() {
 	{
 		v1.GET("/health", func(c *gin.Context) {
 			response.JSON(c, http.StatusOK, "Sistem Manajemen Peternakan Puyuh API Aktif", gin.H{
-				"status":    "healthy",
-				"database":  dbMode,
-				"detail":    dbDetail,
-				"app_env":   cfg.AppEnv,
-				"version":   "1.0.0",
+				"status":   "healthy",
+				"database": dbMode,
+				"detail":   dbDetail,
+				"app_env":  cfg.AppEnv,
+				"version":  "1.0.0",
 			})
 		})
 
@@ -83,6 +87,8 @@ func main() {
 	for _, distPath := range []string{"frontend/dist", "../frontend/dist", "dist"} {
 		if stat, err := os.Stat(distPath); err == nil && stat.IsDir() {
 			router.Static("/assets", filepath.Join(distPath, "assets"))
+			router.StaticFile("/favicon.svg", filepath.Join(distPath, "favicon.svg"))
+			router.StaticFile("/icons.svg", filepath.Join(distPath, "icons.svg"))
 			router.NoRoute(func(c *gin.Context) {
 				if !strings.HasPrefix(c.Request.URL.Path, "/api") {
 					c.File(filepath.Join(distPath, "index.html"))

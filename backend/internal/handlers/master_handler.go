@@ -58,7 +58,10 @@ func (h *MasterHandler) CreateUnit(c *gin.Context) {
 		IsBaseUnit:    req.IsBaseUnit,
 	}
 	db.Units = append(db.Units, newUnit)
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Satuan berhasil dibuat", newUnit)
 }
@@ -141,6 +144,22 @@ func (h *MasterHandler) CreateProduct(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	unitFound := false
+	for _, u := range db.Units {
+		if u.ID == unitUUID {
+			unitFound = true
+			break
+		}
+	}
+	if !unitFound {
+		response.NotFound(c, "Satuan default tidak ditemukan")
+		return
+	}
+	if req.MinStockAlert.IsNegative() || req.InitialPrice.IsNegative() {
+		response.BadRequest(c, "Stok minimum dan harga awal tidak boleh negatif")
+		return
+	}
+
 	var farmID uuid.UUID
 	if len(db.Farms) > 0 {
 		farmID = db.Farms[0].ID
@@ -180,7 +199,10 @@ func (h *MasterHandler) CreateProduct(c *gin.Context) {
 		})
 	}
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 	response.JSON(c, http.StatusCreated, "Produk berhasil ditambahkan", newProd)
 }
 
@@ -264,7 +286,10 @@ func (h *MasterHandler) CreateCustomer(c *gin.Context) {
 		IsActive:         true,
 	}
 	db.Customers = append(db.Customers, newCust)
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pelanggan berhasil ditambahkan", newCust)
 }
@@ -336,7 +361,10 @@ func (h *MasterHandler) CreateSupplier(c *gin.Context) {
 		IsActive:         true,
 	}
 	db.Suppliers = append(db.Suppliers, newSupp)
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Pemasok berhasil ditambahkan", newSupp)
 }

@@ -4,6 +4,8 @@ import { Plus, CheckCircle2, AlertCircle, Check, Eye } from 'lucide-react';
 import { api } from '../services/api';
 import type { Sale, Customer, Product, Unit } from '../types';
 
+const todayISO = new Date().toISOString().slice(0, 10);
+
 export const Sales: React.FC = () => {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -12,7 +14,7 @@ export const Sales: React.FC = () => {
   // Form state
   const [form, setForm] = useState({
     customer_id: '',
-    sale_date: new Date().toISOString().split('T')[0],
+    sale_date: todayISO,
     discount_amount: 0,
     shipping_fee: 0,
     other_fees: 0,
@@ -119,8 +121,8 @@ export const Sales: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Penjualan Telur</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="page-title">Penjualan Telur</h1>
+          <p className="page-subtitle">
             Snapshot harga transaksi tersimpan permanen. Pengesahan langsung memotong stok telur dan menerbitkan tagihan.
           </p>
         </div>
@@ -130,7 +132,7 @@ export const Sales: React.FC = () => {
             const eggProd = products?.find((p) => p.category === 'egg');
             setForm({
               customer_id: customers?.[0]?.id || '',
-              sale_date: new Date().toISOString().split('T')[0],
+              sale_date: todayISO,
               discount_amount: 0,
               shipping_fee: 0,
               other_fees: 0,
@@ -149,7 +151,7 @@ export const Sales: React.FC = () => {
             });
             setShowAddModal(true);
           }}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
+          className="inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
         >
           <Plus size={16} />
           <span>Buat Penjualan Baru</span>
@@ -170,7 +172,7 @@ export const Sales: React.FC = () => {
       )}
 
       {/* Sales Orders Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div className="table-shell">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">

@@ -4,6 +4,8 @@ import { Egg, Plus, CheckCircle2, AlertCircle, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 import type { ProductionRecord, Flock, Coop } from '../types';
 
+const todayISO = new Date().toISOString().slice(0, 10);
+
 export const Production: React.FC = () => {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -11,7 +13,7 @@ export const Production: React.FC = () => {
   const [form, setForm] = useState({
     flock_id: '',
     coop_id: '',
-    record_date: new Date().toISOString().split('T')[0],
+    record_date: todayISO,
     total_eggs: 500,
     damaged_eggs: 10,
     notes: '',
@@ -47,7 +49,7 @@ export const Production: React.FC = () => {
       setForm({
         flock_id: '',
         coop_id: '',
-        record_date: new Date().toISOString().split('T')[0],
+        record_date: todayISO,
         total_eggs: 500,
         damaged_eggs: 10,
         notes: '',
@@ -72,15 +74,15 @@ export const Production: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Pencatatan Produksi Telur</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="page-title">Pencatatan Produksi Telur</h1>
+          <p className="page-subtitle">
             Catat hasil panen harian per kandang. Telur layak jual otomatis menambah stok inventaris.
           </p>
         </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
+          className="inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
         >
           <Plus size={16} />
           <span>Input Panen Telur</span>
@@ -101,7 +103,7 @@ export const Production: React.FC = () => {
       )}
 
       {/* Production History Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div className="table-shell">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">

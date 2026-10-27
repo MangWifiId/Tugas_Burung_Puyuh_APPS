@@ -19,16 +19,16 @@ func NewDashboardHandler() *DashboardHandler {
 }
 
 type DashboardSummaryResponse struct {
-	ActivePopulation     int             `json:"active_population"`
-	TotalCoops           int             `json:"total_coops"`
-	TodayProductionEggs  int             `json:"today_production_eggs"`
-	TodayDamagedEggs     int             `json:"today_damaged_eggs"`
-	TodaySaleableEggs    int             `json:"today_saleable_eggs"`
-	EggStockReady        decimal.Decimal `json:"egg_stock_ready"`
-	TotalReceivables     decimal.Decimal `json:"total_receivables"`
-	TotalPayables        decimal.Decimal `json:"total_payables"`
-	TotalCashBalance     decimal.Decimal `json:"total_cash_balance"`
-	LowStockItemsCount   int             `json:"low_stock_items_count"`
+	ActivePopulation    int             `json:"active_population"`
+	TotalCoops          int             `json:"total_coops"`
+	TodayProductionEggs int             `json:"today_production_eggs"`
+	TodayDamagedEggs    int             `json:"today_damaged_eggs"`
+	TodaySaleableEggs   int             `json:"today_saleable_eggs"`
+	EggStockReady       decimal.Decimal `json:"egg_stock_ready"`
+	TotalReceivables    decimal.Decimal `json:"total_receivables"`
+	TotalPayables       decimal.Decimal `json:"total_payables"`
+	TotalCashBalance    decimal.Decimal `json:"total_cash_balance"`
+	LowStockItemsCount  int             `json:"low_stock_items_count"`
 }
 
 type ProductionTrendPoint struct {

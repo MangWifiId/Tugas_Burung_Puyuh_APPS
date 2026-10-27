@@ -20,7 +20,7 @@ func NewFlockHandler() *FlockHandler {
 
 type FlockDetailResponse struct {
 	models.Flock
-	CoopPlacements []CoopPlacementDetail `json:"coop_placements"`
+	CoopPlacements []CoopPlacementDetail  `json:"coop_placements"`
 	Movements      []models.FlockMovement `json:"movements"`
 }
 
@@ -96,6 +96,23 @@ func (h *FlockHandler) CreateFlock(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	coop, ok := findCoop(db, coopUUID)
+	if !ok {
+		response.NotFound(c, "Kandang awal tidak ditemukan")
+		return
+	}
+
+	usedCapacity := 0
+	for _, fp := range db.FlockPlacements {
+		if fp.CoopID == coopUUID {
+			usedCapacity += fp.Quantity
+		}
+	}
+	if coop.Capacity > 0 && usedCapacity+req.InitialQuantity > coop.Capacity {
+		response.Unprocessable(c, "Kapasitas kandang tidak mencukupi untuk jumlah awal kelompok puyuh")
+		return
+	}
+
 	var farmID uuid.UUID
 	if len(db.Farms) > 0 {
 		farmID = db.Farms[0].ID
@@ -143,7 +160,10 @@ func (h *FlockHandler) CreateFlock(c *gin.Context) {
 		Reason:        "Penerimaan bibit/kelompok puyuh baru",
 	})
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Kelompok puyuh berhasil ditambahkan", newFlock)
 }
@@ -196,15 +216,27 @@ func (h *FlockHandler) RecordMovement(c *gin.Context) {
 
 	if req.FromCoopID != "" {
 		parsed, err := uuid.Parse(req.FromCoopID)
-		if err == nil {
-			fromCoopUUID = &parsed
+		if err != nil {
+			response.BadRequest(c, "ID kandang asal tidak valid")
+			return
 		}
+		if _, ok := findCoop(db, parsed); !ok {
+			response.NotFound(c, "Kandang asal tidak ditemukan")
+			return
+		}
+		fromCoopUUID = &parsed
 	}
 	if req.ToCoopID != "" {
 		parsed, err := uuid.Parse(req.ToCoopID)
-		if err == nil {
-			toCoopUUID = &parsed
+		if err != nil {
+			response.BadRequest(c, "ID kandang tujuan tidak valid")
+			return
 		}
+		if _, ok := findCoop(db, parsed); !ok {
+			response.NotFound(c, "Kandang tujuan tidak ditemukan")
+			return
+		}
+		toCoopUUID = &parsed
 	}
 
 	switch req.MovementType {
@@ -214,20 +246,47 @@ func (h *FlockHandler) RecordMovement(c *gin.Context) {
 			response.BadRequest(c, "Jumlah pengurangan melebihi sisa populasi kelompok saat ini")
 			return
 		}
-		db.Flocks[flockIdx].CurrentQuantity -= req.Quantity
-		db.Flocks[flockIdx].UpdatedAt = now
 
-		// Kurangi dari placement kandang asal jika ada
 		if fromCoopUUID != nil {
+			placementIdx := -1
 			for j := range db.FlockPlacements {
 				if db.FlockPlacements[j].FlockID == flockID && db.FlockPlacements[j].CoopID == *fromCoopUUID {
-					db.FlockPlacements[j].Quantity -= req.Quantity
-					if db.FlockPlacements[j].Quantity < 0 {
-						db.FlockPlacements[j].Quantity = 0
-					}
+					placementIdx = j
 					break
 				}
 			}
+			if placementIdx == -1 {
+				response.Unprocessable(c, "Kelompok puyuh tidak terdaftar di kandang asal yang dipilih")
+				return
+			}
+			if db.FlockPlacements[placementIdx].Quantity < req.Quantity {
+				response.Unprocessable(c, "Jumlah di kandang asal tidak mencukupi untuk pengurangan populasi")
+				return
+			}
+			db.FlockPlacements[placementIdx].Quantity -= req.Quantity
+		} else {
+			// Tanpa kandang asal: kurangi alokasi kandang secara berurutan.
+			remaining := req.Quantity
+			for j := range db.FlockPlacements {
+				if remaining == 0 {
+					break
+				}
+				if db.FlockPlacements[j].FlockID != flockID || db.FlockPlacements[j].Quantity <= 0 {
+					continue
+				}
+				take := remaining
+				if db.FlockPlacements[j].Quantity < take {
+					take = db.FlockPlacements[j].Quantity
+				}
+				db.FlockPlacements[j].Quantity -= take
+				remaining -= take
+			}
+		}
+
+		db.Flocks[flockIdx].CurrentQuantity -= req.Quantity
+		db.Flocks[flockIdx].UpdatedAt = now
+		if db.Flocks[flockIdx].CurrentQuantity == 0 {
+			db.Flocks[flockIdx].Status = "culled"
 		}
 
 	case "transfer":
@@ -236,17 +295,28 @@ func (h *FlockHandler) RecordMovement(c *gin.Context) {
 			response.BadRequest(c, "Kandang asal dan kandang tujuan harus dipilih untuk transfer antar-kandang")
 			return
 		}
-		// Kurangi dari asal
+		if *fromCoopUUID == *toCoopUUID {
+			response.BadRequest(c, "Kandang asal dan tujuan tidak boleh sama")
+			return
+		}
+
+		placementIdx := -1
 		for j := range db.FlockPlacements {
 			if db.FlockPlacements[j].FlockID == flockID && db.FlockPlacements[j].CoopID == *fromCoopUUID {
-				if db.FlockPlacements[j].Quantity < req.Quantity {
-					response.BadRequest(c, "Jumlah di kandang asal tidak mencukupi untuk transfer")
-					return
-				}
-				db.FlockPlacements[j].Quantity -= req.Quantity
+				placementIdx = j
 				break
 			}
 		}
+		if placementIdx == -1 {
+			response.Unprocessable(c, "Kelompok puyuh tidak terdaftar di kandang asal yang dipilih")
+			return
+		}
+		if db.FlockPlacements[placementIdx].Quantity < req.Quantity {
+			response.Unprocessable(c, "Jumlah di kandang asal tidak mencukupi untuk transfer")
+			return
+		}
+		db.FlockPlacements[placementIdx].Quantity -= req.Quantity
+
 		// Tambah ke tujuan
 		foundTarget := false
 		for j := range db.FlockPlacements {
@@ -269,14 +339,35 @@ func (h *FlockHandler) RecordMovement(c *gin.Context) {
 		// Penambahan populasi
 		db.Flocks[flockIdx].CurrentQuantity += req.Quantity
 		db.Flocks[flockIdx].UpdatedAt = now
+
+		targetAdded := false
 		if toCoopUUID != nil {
 			for j := range db.FlockPlacements {
 				if db.FlockPlacements[j].FlockID == flockID && db.FlockPlacements[j].CoopID == *toCoopUUID {
 					db.FlockPlacements[j].Quantity += req.Quantity
+					targetAdded = true
 					break
 				}
 			}
 		}
+		if !targetAdded {
+			// Jika kandang tujuan tidak dipilih, gunakan alokasi kandang pertama.
+			for j := range db.FlockPlacements {
+				if db.FlockPlacements[j].FlockID == flockID {
+					db.FlockPlacements[j].Quantity += req.Quantity
+					targetAdded = true
+					break
+				}
+			}
+		}
+		if !targetAdded {
+			response.Unprocessable(c, "Kelompok puyuh belum memiliki alokasi kandang; pilih kandang tujuan")
+			return
+		}
+
+	default:
+		response.BadRequest(c, "Tipe mutasi populasi tidak dikenal")
+		return
 	}
 
 	newMov := models.FlockMovement{
@@ -291,7 +382,10 @@ func (h *FlockHandler) RecordMovement(c *gin.Context) {
 	}
 	db.FlockMovements = append(db.FlockMovements, newMov)
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Mutasi populasi gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Mutasi populasi berhasil dicatat", newMov)
 }

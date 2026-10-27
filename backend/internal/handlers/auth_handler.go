@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,56 +43,38 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
 	db := database.DBInstance
 	db.RLock()
-	defer db.RUnlock()
 
 	var foundUser *models.User
 	for _, u := range db.Users {
-		if u.Email == req.Email && u.IsActive {
+		if strings.EqualFold(u.Email, email) && u.IsActive {
 			userCopy := u
 			foundUser = &userCopy
 			break
 		}
 	}
+	db.RUnlock()
 
-	if foundUser == nil {
+	if foundUser == nil || foundUser.PasswordHash == "" {
 		response.Unauthorized(c, "Email atau kata sandi tidak sesuai")
 		return
 	}
 
-	passwordMatched := false
-	if foundUser.PasswordHash != "" {
-		if err := bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(req.Password)); err == nil {
-			passwordMatched = true
-		}
-	}
-	// Fallback jika password adalah password default atau hash belum tersimpan
-	if !passwordMatched && (req.Password == "password123" || req.Password == "admin123" || req.Password == "admin" || foundUser.PasswordHash == "") {
-		passwordMatched = true
-		// Buat dan simpan hash baru
-		newHash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		db.Lock()
-		for i := range db.Users {
-			if db.Users[i].ID == foundUser.ID {
-				db.Users[i].PasswordHash = string(newHash)
-				break
-			}
-		}
-		_ = db.Persist()
-		db.Unlock()
-	}
-
-	if !passwordMatched {
+	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(req.Password)); err != nil {
 		response.Unauthorized(c, "Email atau kata sandi tidak sesuai")
 		return
 	}
 
 	var farmID *uuid.UUID
+	db.RLock()
 	if len(db.Farms) > 0 {
 		fID := db.Farms[0].ID
 		farmID = &fID
 	}
+	db.RUnlock()
 
 	token, err := auth.GenerateToken(foundUser.ID, foundUser.Email, foundUser.Role, farmID, h.cfg.JWTSecret, h.cfg.JWTExpiresHours)
 	if err != nil {
@@ -118,12 +101,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
 	db := database.DBInstance
 	db.Lock()
 	defer db.Unlock()
 
+	// Registrasi publik hanya diizinkan untuk instalasi baru atau jika
+	// ALLOW_REGISTRATION=true. Mencegah siapa pun membuat akun owner.
+	if len(db.Users) > 0 && !h.cfg.AllowRegistration {
+		response.Forbidden(c, "Registrasi publik dinonaktifkan. Hubungi pemilik peternakan untuk membuat akun.")
+		return
+	}
+
 	for _, u := range db.Users {
-		if u.Email == req.Email {
+		if strings.EqualFold(u.Email, email) {
 			response.Conflict(c, "Email sudah terdaftar dalam sistem")
 			return
 		}
@@ -138,8 +130,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	now := time.Now().UTC()
 	newUser := models.User{
 		BaseUUIDModel: models.BaseUUIDModel{ID: uuid.New(), CreatedAt: now, UpdatedAt: now},
-		Name:          req.Name,
-		Email:         req.Email,
+		Name:          strings.TrimSpace(req.Name),
+		Email:         email,
 		PasswordHash:  string(hash),
 		Role:          "owner",
 		IsActive:      true,
@@ -152,7 +144,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		farmID = &fID
 	}
 
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Registrasi gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	token, _ := auth.GenerateToken(newUser.ID, newUser.Email, newUser.Role, farmID, h.cfg.JWTSecret, h.cfg.JWTExpiresHours)
 

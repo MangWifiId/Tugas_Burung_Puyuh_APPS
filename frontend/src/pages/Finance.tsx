@@ -4,6 +4,8 @@ import { Wallet, Plus, CheckCircle2, AlertCircle, ArrowDownRight, DollarSign, Re
 import { api } from '../services/api';
 import type { CustomerInvoice, SupplierBill, CashAccount, Expense, CashTransaction } from '../types';
 
+const todayISO = new Date().toISOString().slice(0, 10);
+
 export const Finance: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'receivables' | 'payables' | 'expenses' | 'cash'>('receivables');
@@ -15,7 +17,7 @@ export const Finance: React.FC = () => {
 
   // Forms
   const [custPaymentForm, setCustPaymentForm] = useState({
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: todayISO,
     payment_method: 'cash',
     cash_account_id: '',
     amount: 0,
@@ -23,7 +25,7 @@ export const Finance: React.FC = () => {
   });
 
   const [suppPaymentForm, setSuppPaymentForm] = useState({
-    payment_date: new Date().toISOString().split('T')[0],
+    payment_date: todayISO,
     payment_method: 'cash',
     cash_account_id: '',
     amount: 0,
@@ -31,7 +33,7 @@ export const Finance: React.FC = () => {
   });
 
   const [expenseForm, setExpenseForm] = useState({
-    expense_date: new Date().toISOString().split('T')[0],
+    expense_date: todayISO,
     category: 'electricity',
     amount: 150000,
     cash_account_id: '',
@@ -131,8 +133,8 @@ export const Finance: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Keuangan, Tagihan & Arus Kas</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="page-title">Keuangan, Tagihan & Arus Kas</h1>
+          <p className="page-subtitle">
             Kelola piutang pelanggan, utang pemasok, beban operasional, dan mutasi kas secara rapi & terpadu.
           </p>
         </div>
@@ -218,7 +220,7 @@ export const Finance: React.FC = () => {
 
       {/* TAB 1: PIUTANG PELANGGAN */}
       {activeTab === 'receivables' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="table-shell">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -284,7 +286,7 @@ export const Finance: React.FC = () => {
                               const unpaid = typeof inv.remaining_unpaid === 'string' ? parseFloat(inv.remaining_unpaid) : inv.remaining_unpaid || 0;
                               setPayInvoiceModal(inv);
                               setCustPaymentForm({
-                                payment_date: new Date().toISOString().split('T')[0],
+                                payment_date: todayISO,
                                 payment_method: 'cash',
                                 cash_account_id: cashAccounts?.[0]?.id || '',
                                 amount: unpaid,
@@ -314,7 +316,7 @@ export const Finance: React.FC = () => {
 
       {/* TAB 2: UTANG PEMASOK */}
       {activeTab === 'payables' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="table-shell">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -380,7 +382,7 @@ export const Finance: React.FC = () => {
                               const unpaid = typeof bill.remaining_unpaid === 'string' ? parseFloat(bill.remaining_unpaid) : bill.remaining_unpaid || 0;
                               setPayBillModal(bill);
                               setSuppPaymentForm({
-                                payment_date: new Date().toISOString().split('T')[0],
+                                payment_date: todayISO,
                                 payment_method: 'cash',
                                 cash_account_id: cashAccounts?.[0]?.id || '',
                                 amount: unpaid,
@@ -410,7 +412,7 @@ export const Finance: React.FC = () => {
 
       {/* TAB 3: BEBAN OPERASIONAL */}
       {activeTab === 'expenses' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="table-shell">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
@@ -477,7 +479,7 @@ export const Finance: React.FC = () => {
           {/* Cash Accounts Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {cashAccounts?.map((ca) => (
-              <div key={ca.id} className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+              <div key={ca.id} className="card p-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                     {ca.account_type === 'cash' ? 'Kas Tunai' : 'Rekening Bank'}
@@ -496,7 +498,7 @@ export const Finance: React.FC = () => {
           </div>
 
           {/* Mutasi Kas Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="table-shell">
             <div className="p-4 border-b border-slate-200 font-bold text-slate-900 text-sm">
               Buku Mutasi Kas Masuk & Keluar
             </div>

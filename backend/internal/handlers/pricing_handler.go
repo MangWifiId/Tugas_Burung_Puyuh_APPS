@@ -87,6 +87,30 @@ func (h *PricingHandler) SetPrice(c *gin.Context) {
 	db.Lock()
 	defer db.Unlock()
 
+	if !req.Price.GreaterThan(decimal.Zero) {
+		response.BadRequest(c, "Harga harus lebih besar dari 0")
+		return
+	}
+	if req.PriceType != "sell" && req.PriceType != "buy" {
+		response.BadRequest(c, "Tipe harga harus 'sell' atau 'buy'")
+		return
+	}
+	if _, ok := findProduct(db, prodUUID); !ok {
+		response.NotFound(c, "Produk tidak ditemukan")
+		return
+	}
+	unitFound := false
+	for _, u := range db.Units {
+		if u.ID == unitUUID {
+			unitFound = true
+			break
+		}
+	}
+	if !unitFound {
+		response.NotFound(c, "Satuan tidak ditemukan")
+		return
+	}
+
 	now := time.Now().UTC()
 
 	// Tutup tanggal masa berlaku harga lama jika ada
@@ -110,7 +134,10 @@ func (h *PricingHandler) SetPrice(c *gin.Context) {
 		Notes:         req.Notes,
 	}
 	db.ProductPrices = append(db.ProductPrices, newPrice)
-	_ = db.Persist()
+	if err := db.Persist(); err != nil {
+		response.InternalServerError(c, "Data gagal disimpan, silakan coba lagi")
+		return
+	}
 
 	response.JSON(c, http.StatusCreated, "Harga baru berhasil ditetapkan", newPrice)
 }

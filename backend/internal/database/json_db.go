@@ -20,34 +20,34 @@ type JSONDatabase struct {
 	mu       sync.RWMutex
 	filePath string
 
-	Users                  []models.User                      `json:"users"`
-	Farms                  []models.Farm                      `json:"farms"`
-	Coops                  []models.Coop                      `json:"coops"`
-	Units                  []models.Unit                      `json:"units"`
-	Products               []models.Product                   `json:"products"`
-	Conversions            []models.ProductUnitConversion     `json:"conversions"`
-	Customers              []models.Customer                  `json:"customers"`
-	Suppliers              []models.Supplier                  `json:"suppliers"`
-	Flocks                 []models.Flock                     `json:"flocks"`
-	FlockPlacements        []models.FlockPlacement            `json:"flock_placements"`
-	FlockMovements         []models.FlockMovement             `json:"flock_movements"`
-	ProductionRecords      []models.ProductionRecord          `json:"production_records"`
-	InventoryMovements     []models.InventoryMovement         `json:"inventory_movements"`
-	FeedUsages             []models.FeedUsage                 `json:"feed_usages"`
-	ProductPrices          []models.ProductPrice              `json:"product_prices"`
-	Sales                  []models.Sale                      `json:"sales"`
-	Purchases              []models.Purchase                  `json:"purchases"`
-	CustomerInvoices       []models.CustomerInvoice           `json:"customer_invoices"`
-	CustomerPayments       []models.CustomerPayment           `json:"customer_payments"`
-	CustomerAllocations    []models.CustomerPaymentAllocation `json:"customer_allocations"`
-	SupplierBills          []models.SupplierBill              `json:"supplier_bills"`
-	SupplierPayments       []models.SupplierPayment           `json:"supplier_payments"`
-	SupplierAllocations    []models.SupplierPaymentAllocation `json:"supplier_allocations"`
-	CashAccounts           []models.CashAccount               `json:"cash_accounts"`
-	Expenses               []models.Expense                   `json:"expenses"`
-	CashTransactions       []models.CashTransaction           `json:"cash_transactions"`
-	StockAdjustments       []models.StockAdjustment           `json:"stock_adjustments"`
-	AuditLogs              []models.AuditLog                  `json:"audit_logs"`
+	Users               []models.User                      `json:"users"`
+	Farms               []models.Farm                      `json:"farms"`
+	Coops               []models.Coop                      `json:"coops"`
+	Units               []models.Unit                      `json:"units"`
+	Products            []models.Product                   `json:"products"`
+	Conversions         []models.ProductUnitConversion     `json:"conversions"`
+	Customers           []models.Customer                  `json:"customers"`
+	Suppliers           []models.Supplier                  `json:"suppliers"`
+	Flocks              []models.Flock                     `json:"flocks"`
+	FlockPlacements     []models.FlockPlacement            `json:"flock_placements"`
+	FlockMovements      []models.FlockMovement             `json:"flock_movements"`
+	ProductionRecords   []models.ProductionRecord          `json:"production_records"`
+	InventoryMovements  []models.InventoryMovement         `json:"inventory_movements"`
+	FeedUsages          []models.FeedUsage                 `json:"feed_usages"`
+	ProductPrices       []models.ProductPrice              `json:"product_prices"`
+	Sales               []models.Sale                      `json:"sales"`
+	Purchases           []models.Purchase                  `json:"purchases"`
+	CustomerInvoices    []models.CustomerInvoice           `json:"customer_invoices"`
+	CustomerPayments    []models.CustomerPayment           `json:"customer_payments"`
+	CustomerAllocations []models.CustomerPaymentAllocation `json:"customer_allocations"`
+	SupplierBills       []models.SupplierBill              `json:"supplier_bills"`
+	SupplierPayments    []models.SupplierPayment           `json:"supplier_payments"`
+	SupplierAllocations []models.SupplierPaymentAllocation `json:"supplier_allocations"`
+	CashAccounts        []models.CashAccount               `json:"cash_accounts"`
+	Expenses            []models.Expense                   `json:"expenses"`
+	CashTransactions    []models.CashTransaction           `json:"cash_transactions"`
+	StockAdjustments    []models.StockAdjustment           `json:"stock_adjustments"`
+	AuditLogs           []models.AuditLog                  `json:"audit_logs"`
 }
 
 var DBInstance *JSONDatabase
@@ -121,23 +121,83 @@ func (db *JSONDatabase) RUnlock() {
 
 // Persist writes data safely to file (caller must hold lock)
 func (db *JSONDatabase) Persist() error {
-	return db.persist()
+	if err := db.persist(); err != nil {
+		log.Printf("❌ Gagal menyimpan database JSON: %v\n", err)
+		return err
+	}
+	return nil
 }
 
+// persist menulis seluruh data secara atomik (temporary file + rename) agar
+// file utama tidak pernah dalam kondisi setengah tertulis saat proses berhenti.
 func (db *JSONDatabase) persist() error {
 	data, err := json.MarshalIndent(db, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(db.filePath, data, 0644); err != nil {
-		return err
+
+	tmp, err := os.CreateTemp(filepath.Dir(db.filePath), ".database-*.tmp")
+	if err != nil {
+		return fmt.Errorf("gagal membuat file sementara: %w", err)
 	}
-	if DB != nil {
-		go func() {
-			_ = SyncDataToPostgres(DB, db)
-		}()
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("gagal menulis file sementara: %w", err)
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("gagal sinkronisasi file sementara: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("gagal menutup file sementara: %w", err)
+	}
+	_ = os.Chmod(tmpName, 0644)
+
+	if err := os.Rename(tmpName, db.filePath); err != nil {
+		return fmt.Errorf("gagal mengganti database utama: %w", err)
+	}
+
+	schedulePostgresSync(db)
 	return nil
+}
+
+var (
+	postgresSyncMu        sync.Mutex
+	postgresSyncScheduled bool
+)
+
+// schedulePostgresSync menggabungkan banyak penulisan menjadi satu sinkronisasi
+// PostgreSQL agar tidak menulis ulang seluruh tabel pada setiap request.
+func schedulePostgresSync(db *JSONDatabase) {
+	if DB == nil {
+		return
+	}
+
+	postgresSyncMu.Lock()
+	if postgresSyncScheduled {
+		postgresSyncMu.Unlock()
+		return
+	}
+	postgresSyncScheduled = true
+	postgresSyncMu.Unlock()
+
+	go func() {
+		time.Sleep(1500 * time.Millisecond)
+
+		postgresSyncMu.Lock()
+		postgresSyncScheduled = false
+		postgresSyncMu.Unlock()
+
+		if DB == nil {
+			return
+		}
+		if err := SyncDataToPostgres(DB, db); err != nil {
+			log.Printf("⚠️ Sinkronisasi PostgreSQL gagal: %v\n", err)
+		}
+	}()
 }
 
 func (db *JSONDatabase) seedDefaults() {

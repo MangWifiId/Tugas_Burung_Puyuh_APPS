@@ -27,6 +27,9 @@ import {
 import { api } from '../services/api';
 import type { PerformanceAnalyticsResponse, Coop } from '../types';
 
+const todayISO = new Date().toISOString().slice(0, 10);
+const todayEpoch = Date.now();
+
 export const Analytics: React.FC = () => {
   const [daysFilter, setDaysFilter] = useState<number>(14);
   const [selectedCoopId, setSelectedCoopId] = useState<string>('');
@@ -38,11 +41,12 @@ export const Analytics: React.FC = () => {
   });
 
   // Calculate dates based on daysFilter
-  const today = new Date();
-  const endDateStr = today.toISOString().split('T')[0];
-  const startDate = new Date();
-  startDate.setDate(today.getDate() - (daysFilter - 1));
-  const startDateStr = startDate.toISOString().split('T')[0];
+  const endDateStr = todayISO;
+  const startDateStr = new Date(
+    todayEpoch - (daysFilter - 1) * 24 * 60 * 60 * 1000
+  )
+    .toISOString()
+    .slice(0, 10);
 
   const queryParams = new URLSearchParams({
     start_date: startDateStr,
@@ -85,7 +89,7 @@ export const Analytics: React.FC = () => {
             <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600">
               <TrendingUp size={22} />
             </span>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="page-title">
               Analisis Performa & FCR Puyuh
             </h1>
           </div>
@@ -133,7 +137,7 @@ export const Analytics: React.FC = () => {
       {/* Main KPI Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Hen-Day (Laying Rate) */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div className="card p-5 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Hen-Day (Laying Rate)
@@ -166,7 +170,7 @@ export const Analytics: React.FC = () => {
         </div>
 
         {/* 2. FCR (Feed Conversion Ratio) */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div className="card p-5 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               FCR Pakan
@@ -190,7 +194,7 @@ export const Analytics: React.FC = () => {
         </div>
 
         {/* 3. Konsumsi Pakan Harian (Daily Intake) */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div className="card p-5 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Konsumsi Pakan Rata-rata
@@ -213,7 +217,7 @@ export const Analytics: React.FC = () => {
         </div>
 
         {/* 4. HPP Pakan & Margin Telur */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div className="card p-5 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               HPP Pakan / Butir
@@ -240,7 +244,7 @@ export const Analytics: React.FC = () => {
       </div>
 
       {/* Ringkasan Sekunder: Telur Rusak, Biaya Pakan & Mortalitas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+      <div className="card grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
         <div>
           <span className="text-[11px] font-semibold text-slate-400 block uppercase">Telur Rusak / Retak</span>
           <span className="text-sm font-bold text-slate-800 mt-0.5 block">
@@ -299,7 +303,7 @@ export const Analytics: React.FC = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart 1: Produksi Telur vs Hen-Day % */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
+        <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-sm text-slate-900">Tren Produksi Telur & Hen-Day (%)</h3>
@@ -373,7 +377,7 @@ export const Analytics: React.FC = () => {
         </div>
 
         {/* Chart 2: Pakan Terpakai vs FCR */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-4">
+        <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-sm text-slate-900">Tren Pakan & FCR (Feed Conversion Ratio)</h3>
@@ -441,7 +445,7 @@ export const Analytics: React.FC = () => {
       </div>
 
       {/* Komparasi Efisiensi Antar Kandang */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      <div className="table-shell">
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 className="font-bold text-base text-slate-900">Perbandingan Efisiensi Antar Kandang</h3>
@@ -539,7 +543,7 @@ export const Analytics: React.FC = () => {
       </div>
 
       {/* Standar Acuan Teknis Puyuh Petelur (Benchmark Reference Guide) */}
-      <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm space-y-3">
+      <div className="card p-5 space-y-3">
         <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
           <HelpCircle size={18} className="text-amber-500" />
           <span>Panduan Standar Teknis Budidaya Puyuh Petelur (Coturnix japonica)</span>

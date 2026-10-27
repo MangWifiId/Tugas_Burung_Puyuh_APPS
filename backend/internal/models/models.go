@@ -367,17 +367,17 @@ type CashAccount struct {
 // CustomerPayment records money received from customers
 type CustomerPayment struct {
 	BaseUUIDModel
-	FarmID         uuid.UUID                  `gorm:"type:uuid;not null;index" json:"farm_id"`
-	CustomerID     uuid.UUID                  `gorm:"type:uuid;not null;index" json:"customer_id"`
-	Customer       Customer                   `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
-	PaymentNumber  string                     `gorm:"size:60;not null;index:idx_cpymt_num,unique" json:"payment_number"`
-	PaymentDate    time.Time                  `gorm:"type:date;not null;index" json:"payment_date"`
-	Amount         decimal.Decimal            `gorm:"type:numeric(15,2);not null" json:"amount"`
-	PaymentMethod  string                     `gorm:"size:50;not null" json:"payment_method"` // 'cash', 'bank_transfer'
-	CashAccountID  *uuid.UUID                 `gorm:"type:uuid" json:"cash_account_id,omitempty"`
-	CashAccount    *CashAccount               `gorm:"foreignKey:CashAccountID" json:"cash_account,omitempty"`
-	ReferenceNotes string                     `gorm:"type:text" json:"reference_notes"`
-	CreatedBy      *uuid.UUID                 `gorm:"type:uuid" json:"created_by,omitempty"`
+	FarmID         uuid.UUID                   `gorm:"type:uuid;not null;index" json:"farm_id"`
+	CustomerID     uuid.UUID                   `gorm:"type:uuid;not null;index" json:"customer_id"`
+	Customer       Customer                    `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
+	PaymentNumber  string                      `gorm:"size:60;not null;index:idx_cpymt_num,unique" json:"payment_number"`
+	PaymentDate    time.Time                   `gorm:"type:date;not null;index" json:"payment_date"`
+	Amount         decimal.Decimal             `gorm:"type:numeric(15,2);not null" json:"amount"`
+	PaymentMethod  string                      `gorm:"size:50;not null" json:"payment_method"` // 'cash', 'bank_transfer'
+	CashAccountID  *uuid.UUID                  `gorm:"type:uuid" json:"cash_account_id,omitempty"`
+	CashAccount    *CashAccount                `gorm:"foreignKey:CashAccountID" json:"cash_account,omitempty"`
+	ReferenceNotes string                      `gorm:"type:text" json:"reference_notes"`
+	CreatedBy      *uuid.UUID                  `gorm:"type:uuid" json:"created_by,omitempty"`
 	Allocations    []CustomerPaymentAllocation `gorm:"foreignKey:PaymentID" json:"allocations,omitempty"`
 }
 
@@ -393,17 +393,17 @@ type CustomerPaymentAllocation struct {
 // SupplierPayment records money paid to vendors
 type SupplierPayment struct {
 	BaseUUIDModel
-	FarmID         uuid.UUID                  `gorm:"type:uuid;not null;index" json:"farm_id"`
-	SupplierID     uuid.UUID                  `gorm:"type:uuid;not null;index" json:"supplier_id"`
-	Supplier       Supplier                   `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
-	PaymentNumber  string                     `gorm:"size:60;not null;index:idx_spymt_num,unique" json:"payment_number"`
-	PaymentDate    time.Time                  `gorm:"type:date;not null;index" json:"payment_date"`
-	Amount         decimal.Decimal            `gorm:"type:numeric(15,2);not null" json:"amount"`
-	PaymentMethod  string                     `gorm:"size:50;not null" json:"payment_method"`
-	CashAccountID  *uuid.UUID                 `gorm:"type:uuid" json:"cash_account_id,omitempty"`
-	CashAccount    *CashAccount               `gorm:"foreignKey:CashAccountID" json:"cash_account,omitempty"`
-	ReferenceNotes string                     `gorm:"type:text" json:"reference_notes"`
-	CreatedBy      *uuid.UUID                 `gorm:"type:uuid" json:"created_by,omitempty"`
+	FarmID         uuid.UUID                   `gorm:"type:uuid;not null;index" json:"farm_id"`
+	SupplierID     uuid.UUID                   `gorm:"type:uuid;not null;index" json:"supplier_id"`
+	Supplier       Supplier                    `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
+	PaymentNumber  string                      `gorm:"size:60;not null;index:idx_spymt_num,unique" json:"payment_number"`
+	PaymentDate    time.Time                   `gorm:"type:date;not null;index" json:"payment_date"`
+	Amount         decimal.Decimal             `gorm:"type:numeric(15,2);not null" json:"amount"`
+	PaymentMethod  string                      `gorm:"size:50;not null" json:"payment_method"`
+	CashAccountID  *uuid.UUID                  `gorm:"type:uuid" json:"cash_account_id,omitempty"`
+	CashAccount    *CashAccount                `gorm:"foreignKey:CashAccountID" json:"cash_account,omitempty"`
+	ReferenceNotes string                      `gorm:"type:text" json:"reference_notes"`
+	CreatedBy      *uuid.UUID                  `gorm:"type:uuid" json:"created_by,omitempty"`
 	Allocations    []SupplierPaymentAllocation `gorm:"foreignKey:PaymentID" json:"allocations,omitempty"`
 }
 

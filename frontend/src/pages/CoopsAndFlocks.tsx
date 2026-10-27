@@ -4,6 +4,8 @@ import { Home, Bird, Plus, ArrowRightLeft, AlertCircle, CheckCircle2 } from 'luc
 import { api } from '../services/api';
 import type { Coop, Flock } from '../types';
 
+const todayISO = new Date().toISOString().slice(0, 10);
+
 export const CoopsAndFlocks: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'coops' | 'flocks'>('coops');
@@ -18,14 +20,14 @@ export const CoopsAndFlocks: React.FC = () => {
   const [flockForm, setFlockForm] = useState({
     code: '',
     name: '',
-    entry_date: new Date().toISOString().split('T')[0],
+    entry_date: todayISO,
     initial_quantity: 1000,
     initial_age_days: 30,
     initial_coop_id: '',
     notes: '',
   });
   const [movementForm, setMovementForm] = useState({
-    movement_date: new Date().toISOString().split('T')[0],
+    movement_date: todayISO,
     movement_type: 'mortality',
     quantity: 1,
     from_coop_id: '',
@@ -72,7 +74,7 @@ export const CoopsAndFlocks: React.FC = () => {
       setFlockForm({
         code: '',
         name: '',
-        entry_date: new Date().toISOString().split('T')[0],
+        entry_date: todayISO,
         initial_quantity: 1000,
         initial_age_days: 30,
         initial_coop_id: '',
@@ -95,7 +97,7 @@ export const CoopsAndFlocks: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       setShowMovement(null);
       setMovementForm({
-        movement_date: new Date().toISOString().split('T')[0],
+        movement_date: todayISO,
         movement_type: 'mortality',
         quantity: 1,
         from_coop_id: '',
@@ -115,8 +117,8 @@ export const CoopsAndFlocks: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Kandang & Populasi Puyuh</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="page-title">Kandang & Populasi Puyuh</h1>
+          <p className="page-subtitle">
             Kelola data kandang, kelompok bibit/layer, kematian, afkir, serta mutasi antar-kandang.
           </p>
         </div>
@@ -125,7 +127,7 @@ export const CoopsAndFlocks: React.FC = () => {
           {activeTab === 'coops' ? (
             <button
               onClick={() => setShowAddCoop(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
+              className="inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
             >
               <Plus size={16} />
               <span>Tambah Kandang</span>
@@ -133,7 +135,7 @@ export const CoopsAndFlocks: React.FC = () => {
           ) : (
             <button
               onClick={() => setShowAddFlock(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
+              className="inline-flex items-center gap-2 whitespace-nowrap px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-sm transition-all"
             >
               <Plus size={16} />
               <span>Tambah Kelompok / Batch</span>
@@ -192,7 +194,7 @@ export const CoopsAndFlocks: React.FC = () => {
               const fillPercentage = Math.min(Math.round((currentPop / coop.capacity) * 100), 100);
 
               return (
-                <div key={coop.id} className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                <div key={coop.id} className="card p-5 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
@@ -244,7 +246,7 @@ export const CoopsAndFlocks: React.FC = () => {
       {/* TAB 2: FLOCKS */}
       {activeTab === 'flocks' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="table-shell">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase">
