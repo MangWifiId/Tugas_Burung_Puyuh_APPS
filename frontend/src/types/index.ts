@@ -47,7 +47,16 @@ export interface BatchStats extends Batch {
   total_addition: number
   age_days: number
   age_weeks: number
+  age_stage: string
   mortality_rate: number
+  recent_eggs: number
+  productivity: number
+  productivity_7d: number
+  standard_productivity: number
+  productivity_gap: number
+  production_trend: number
+  productivity_status: 'no_data' | 'normal' | 'watch' | 'low' | 'stale'
+  last_production_date?: string | null
 }
 
 export interface EggProduction {
@@ -265,6 +274,16 @@ export interface ReportTotals {
   productivity: number
 }
 
+export interface AgeProductivityPoint {
+  age_weeks: number
+  label: string
+  eggs: number
+  population: number
+  productivity: number
+  standard: number
+  samples: number
+}
+
 export interface ReportResponse {
   from: string
   to: string
@@ -272,6 +291,7 @@ export interface ReportResponse {
   days: number
   totals: ReportTotals
   series: ReportPoint[]
+  age_series: AgeProductivityPoint[]
   batches: BatchStats[]
 }
 
@@ -295,6 +315,7 @@ export interface DashboardData {
   upcoming_events: CalendarEvent[]
   recent_warnings: WarningEvent[]
   charts: ReportPoint[]
+  age_series: AgeProductivityPoint[]
   batches: BatchStats[]
 }
 

@@ -399,7 +399,8 @@ export function PopulationPage() {
                         </Badge>
                       </div>
                       <p className="mt-1 text-[11px] text-stone-400">
-                        Menetas {formatDate(batch.hatch_date)} · {formatNumber(batch.age_weeks)} minggu
+                        Menetas {formatDate(batch.hatch_date)} · {formatNumber(batch.age_weeks)} minggu ·{' '}
+                        {batch.age_stage}
                       </p>
                     </div>
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">

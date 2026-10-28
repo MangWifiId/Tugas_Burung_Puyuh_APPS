@@ -574,7 +574,7 @@ export function DashboardPage() {
                   <div>
                     <p className="text-sm font-semibold text-stone-900">{batch.name}</p>
                     <p className="mt-0.5 text-[11px] text-stone-400">
-                      Umur {formatNumber(batch.age_days)} hari · {batch.age_weeks} minggu
+                      Umur {formatNumber(batch.age_days)} hari · {batch.age_weeks} minggu · {batch.age_stage}
                     </p>
                   </div>
                   <Badge tone={batch.status === 'active' ? 'emerald' : 'stone'} dot>
@@ -593,6 +593,47 @@ export function DashboardPage() {
                   </div>
                   <p className="text-[11px] text-stone-400">dari {formatNumber(batch.initial_population)}</p>
                 </div>
+                {batch.productivity_status !== 'no_data' && (
+                  <div className="mt-3 rounded-lg bg-stone-50 px-2.5 py-2">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-semibold uppercase tracking-wide text-stone-400">
+                        Produktivitas 7 hari
+                      </span>
+                      <span
+                        className={cn(
+                          'font-bold',
+                          batch.productivity_status === 'normal'
+                            ? 'text-emerald-700'
+                            : batch.productivity_status === 'watch'
+                              ? 'text-amber-600'
+                              : 'text-rose-600',
+                        )}
+                      >
+                        {formatPercent(batch.productivity_7d, 1)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200/70">
+                      <div
+                        className={cn(
+                          'h-full rounded-full',
+                          batch.productivity_status === 'normal'
+                            ? 'bg-emerald-500'
+                            : batch.productivity_status === 'watch'
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500',
+                        )}
+                        style={{ width: `${Math.min(batch.productivity_7d, 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex flex-wrap justify-between gap-x-2 text-[10px] text-stone-400">
+                      <span>Standar umur {formatPercent(batch.standard_productivity, 1)}</span>
+                      <span>
+                        {batch.productivity_gap > 0 ? 'Kurang ' : 'Lebih '}
+                        {formatDecimal(Math.abs(batch.productivity_gap))} poin
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-3">
                   <div className="mb-1 flex justify-between text-[10px] text-stone-400">
                     <span>Kematian</span>

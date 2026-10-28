@@ -56,6 +56,22 @@ const presetLabels: Record<Preset, string> = {
   year: 'Tahun ini',
 }
 
+const productivityStatusLabel = {
+  normal: 'Sesuai umur',
+  watch: 'Perlu dipantau',
+  low: 'Di bawah standar',
+  stale: 'Data lama',
+  no_data: 'Belum produksi',
+} as const
+
+const productivityStatusTone = {
+  normal: 'emerald',
+  watch: 'amber',
+  low: 'rose',
+  stale: 'stone',
+  no_data: 'stone',
+} as const
+
 export function ReportsPage() {
   usePageTitle('Laporan & Grafik')
   const today = todayISO()
@@ -69,6 +85,7 @@ export function ReportsPage() {
   const data = report.data
   const totals = data?.totals
   const series = useMemo(() => data?.series ?? [], [data?.series])
+  const ageSeries = data?.age_series ?? []
   const batchRows = data?.batches ?? []
 
   const applyPreset = (next: Preset) => {
@@ -398,6 +415,53 @@ export function ReportsPage() {
             </ChartCard>
 
             <ChartCard
+              title="Produktivitas menurut umur"
+              description="Produksi aktual dibanding standar umur puyuh. Setelah puncak, standar produksi menurun seiring bertambahnya umur."
+            >
+              {ageSeries.length === 0 ? (
+                <EmptyState
+                  icon={TrendingUp}
+                  title="Belum ada data umur"
+                  description="Catat produksi pada batch yang sudah bertelur untuk melihat kurva umur."
+                />
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={ageSeries} margin={chartMargins}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
+                    <XAxis dataKey="label" tick={axisStyle} axisLine={false} tickLine={false} minTickGap={16} />
+                    <YAxis
+                      tick={axisStyle}
+                      axisLine={false}
+                      tickLine={false}
+                      width={38}
+                      domain={[0, 100]}
+                      tickFormatter={(value) => `${value}%`}
+                    />
+                    <Tooltip content={<ChartTooltip valueFormatter={(value) => formatPercent(value, 1)} />} />
+                    <Line
+                      type="monotone"
+                      dataKey="standard"
+                      name="Standar umur"
+                      stroke={CHART_COLORS.stone}
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="productivity"
+                      name="Produktivitas aktual"
+                      stroke={CHART_COLORS.emerald}
+                      strokeWidth={2.5}
+                      dot={{ r: 2.5 }}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+
+            <ChartCard
               title="Penerimaan pakan"
               description="Jumlah sak diterima dan harga pakan per sak."
             >
@@ -441,7 +505,7 @@ export function ReportsPage() {
 
           <SectionCard
             title="Kinerja per kelompok"
-            description="Ringkasan populasi dan kematian setiap kelompok pada periode ini."
+            description="Ringkasan populasi, kematian, dan produktivitas setiap kelompok dibanding standar umurnya."
             bodyClassName="p-0"
             action={<Badge tone="stone">{formatNumber(batchRows.length)} kelompok</Badge>}
           >
@@ -452,7 +516,7 @@ export function ReportsPage() {
                 description="Tambahkan kelompok puyuh untuk melihat kinerja per kelompok."
               />
             ) : (
-              <Table minWidth="min-w-[900px]">
+              <Table minWidth="min-w-[1180px]">
                 <thead>
                   <tr>
                     <Th>Kelompok</Th>
@@ -462,6 +526,9 @@ export function ReportsPage() {
                     <Th className="text-right">Populasi saat ini</Th>
                     <Th className="text-right">Kematian</Th>
                     <Th className="text-right">Laju kematian</Th>
+                    <Th className="text-right">Produktivitas 7h</Th>
+                    <Th className="text-right">Standar umur</Th>
+                    <Th>Status produksi</Th>
                     <Th className="text-right">Penyesuaian</Th>
                   </tr>
                 </thead>
@@ -485,6 +552,17 @@ export function ReportsPage() {
                       <Td className="text-right text-xs text-rose-600">{formatNumber(batch.total_mortality)}</Td>
                       <Td className="text-right text-xs font-semibold text-stone-700">
                         {formatPercent(batch.mortality_rate, 2)}
+                      </Td>
+                      <Td className="text-right text-xs font-semibold text-stone-800">
+                        {batch.productivity_status === 'no_data' ? '—' : formatPercent(batch.productivity_7d, 1)}
+                      </Td>
+                      <Td className="text-right text-xs text-stone-500">
+                        {formatPercent(batch.standard_productivity, 1)}
+                      </Td>
+                      <Td>
+                        <Badge tone={productivityStatusTone[batch.productivity_status]} dot>
+                          {productivityStatusLabel[batch.productivity_status]}
+                        </Badge>
                       </Td>
                       <Td className="text-right text-[11px] text-stone-500">
                         <span className="text-emerald-700">+{formatNumber(batch.total_addition)}</span>

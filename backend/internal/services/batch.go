@@ -128,6 +128,52 @@ func (s *BatchService) List(search, status string) ([]models.BatchStats, error) 
 	}
 
 	today := models.DateToday()
+
+	// Produksi 14 hari terakhir dipakai untuk menghitung produktivitas 7 hari
+	// berjalan dan tren dibanding 7 hari sebelumnya.
+	type productionAgg struct {
+		recentEggs, prevEggs int
+		recentDays, prevDays int
+		latestDate           models.Date
+		latestEggs           int
+		hasLatest            bool
+	}
+	var productionRows []struct {
+		BatchID        uint
+		ProductionDate models.Date
+		EggCount       int
+	}
+	if err := s.db.Model(&models.EggProduction{}).
+		Select("batch_id, production_date, egg_count").
+		Where("production_date BETWEEN ? AND ?", today.AddDays(-13), today).
+		Scan(&productionRows).Error; err != nil {
+		return nil, err
+	}
+	production := map[uint]*productionAgg{}
+	recentStart := today.AddDays(-7)
+	for _, row := range productionRows {
+		if row.BatchID == 0 {
+			continue
+		}
+		agg := production[row.BatchID]
+		if agg == nil {
+			agg = &productionAgg{}
+			production[row.BatchID] = agg
+		}
+		if row.ProductionDate.After(recentStart) {
+			agg.recentEggs += row.EggCount
+			agg.recentDays++
+		} else {
+			agg.prevEggs += row.EggCount
+			agg.prevDays++
+		}
+		if !agg.hasLatest || row.ProductionDate.After(agg.latestDate) {
+			agg.latestDate = row.ProductionDate
+			agg.latestEggs = row.EggCount
+			agg.hasLatest = true
+		}
+	}
+
 	result := make([]models.BatchStats, 0, len(batches))
 	for _, batch := range batches {
 		stats := models.BatchStats{QuailBatch: batch}
@@ -143,9 +189,43 @@ func (s *BatchService) List(search, status string) ([]models.BatchStats, error) 
 			stats.AgeDays = 0
 		}
 		stats.AgeWeeks = stats.AgeDays / 7
+		stats.AgeStage = models.AgeProductivityStage(stats.AgeDays)
 		if batch.InitialPopulation > 0 {
 			stats.MortalityRate = float64(stats.TotalMortality) / float64(batch.InitialPopulation) * 100
 		}
+
+		stats.StandardProductivity = models.AgeProductivityStandard(stats.AgeDays)
+		stats.ProductivityStatus = "no_data"
+		if agg := production[batch.ID]; agg != nil {
+			if agg.hasLatest && stats.CurrentPopulation > 0 {
+				stats.RecentEggs = agg.latestEggs
+				stats.Productivity = round2(float64(agg.latestEggs) / float64(stats.CurrentPopulation) * 100)
+				lastDate := agg.latestDate
+				stats.LastProductionDate = &lastDate
+			}
+			if stats.CurrentPopulation > 0 && agg.recentDays > 0 {
+				stats.Productivity7d = round2(
+					float64(agg.recentEggs) / (float64(stats.CurrentPopulation) * 7) * 100,
+				)
+				stats.ProductivityGap = round2(stats.StandardProductivity - stats.Productivity7d)
+				if agg.prevEggs > 0 {
+					stats.ProductionTrend = round2(
+						(float64(agg.recentEggs) - float64(agg.prevEggs)) / float64(agg.prevEggs) * 100,
+					)
+				}
+				switch {
+				case stats.ProductivityGap >= 10:
+					stats.ProductivityStatus = "low"
+				case stats.ProductivityGap >= 5:
+					stats.ProductivityStatus = "watch"
+				default:
+					stats.ProductivityStatus = "normal"
+				}
+			} else if agg.hasLatest {
+				stats.ProductivityStatus = "stale"
+			}
+		}
+
 		result = append(result, stats)
 	}
 	return result, nil

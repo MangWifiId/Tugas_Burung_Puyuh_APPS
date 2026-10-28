@@ -47,5 +47,16 @@ type BatchStats struct {
 	TotalAddition     int     `json:"total_addition"`
 	AgeDays           int     `json:"age_days"`
 	AgeWeeks          int     `json:"age_weeks"`
+	AgeStage          string  `json:"age_stage"`
 	MortalityRate     float64 `json:"mortality_rate"`
+
+	// Ringkasan produksi terbaru untuk perbandingan dengan standar umur.
+	RecentEggs           int     `json:"recent_eggs"`
+	Productivity         float64 `json:"productivity"`
+	Productivity7d       float64 `json:"productivity_7d"`
+	StandardProductivity float64 `json:"standard_productivity"`
+	ProductivityGap      float64 `json:"productivity_gap"`
+	ProductionTrend      float64 `json:"production_trend"`
+	ProductivityStatus   string  `json:"productivity_status"`
+	LastProductionDate   *Date   `json:"last_production_date,omitempty"`
 }

@@ -144,6 +144,19 @@ func (s *WarningService) GenerateFor(date models.Date) ([]models.WarningEvent, e
 		}
 		return nil
 	}
+	createWithCode := func(rule *models.WarningRule, code, title, description string, metric float64) error {
+		if rule == nil {
+			return nil
+		}
+		event, err := s.upsertWithCode(rule, code, date, title, description, metric)
+		if err != nil {
+			return err
+		}
+		if event != nil {
+			results = append(results, *event)
+		}
+		return nil
+	}
 
 	if popNow > 0 {
 		rate := float64(todayMort) / float64(popNow) * 100
@@ -189,6 +202,51 @@ func (s *WarningService) GenerateFor(date models.Date) ([]models.WarningEvent, e
 		}
 	}
 
+	if ageRule := rules["age_productivity_gap"]; ageRule != nil {
+		windowStart := date.AddDays(-6)
+		for i := range batches {
+			batch := &batches[i]
+			age := int(date.Time().Sub(batch.HatchDate.Time()).Hours() / 24)
+			if age < 40 {
+				continue
+			}
+			pop, err := PopulationAt(s.db, batch, date, 0)
+			if err != nil {
+				return nil, err
+			}
+			if pop <= 0 {
+				continue
+			}
+			var rows []models.EggProduction
+			if err := s.db.Where("batch_id = ? AND production_date BETWEEN ? AND ?", batch.ID, windowStart, date).
+				Find(&rows).Error; err != nil {
+				return nil, err
+			}
+			if len(rows) == 0 {
+				continue
+			}
+			eggs := 0
+			for _, row := range rows {
+				eggs += row.EggCount
+			}
+			actual := float64(eggs) / (float64(pop) * 7) * 100
+			standard := models.AgeProductivityStandard(age)
+			gap := standard - actual
+			if gap < ageRule.Threshold {
+				continue
+			}
+			code := fmt.Sprintf("%s_b%d", ageRule.Code, batch.ID)
+			title := fmt.Sprintf("Produktivitas %s di bawah standar umur", batch.Name)
+			desc := fmt.Sprintf(
+				"%s berumur %d hari (%s); produktivitas 7 hari %.1f%%, standar umur %.1f%% (selisih %.1f poin di bawah standar).",
+				batch.Name, age, models.AgeProductivityStage(age), actual, standard, gap,
+			)
+			if err := createWithCode(ageRule, code, title, desc, round2(gap)); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	if popPrev > 0 {
 		drop := float64(popPrev-popNow) / float64(popPrev) * 100
 		rule := rules["population_drop_warning"]
@@ -225,12 +283,16 @@ func (s *WarningService) GenerateFor(date models.Date) ([]models.WarningEvent, e
 }
 
 func (s *WarningService) upsert(rule *models.WarningRule, date models.Date, title, description string, metric float64) (*models.WarningEvent, error) {
+	return s.upsertWithCode(rule, rule.Code, date, title, description, metric)
+}
+
+func (s *WarningService) upsertWithCode(rule *models.WarningRule, code string, date models.Date, title, description string, metric float64) (*models.WarningEvent, error) {
 	var event models.WarningEvent
-	err := s.db.Where("code = ? AND event_date = ?", rule.Code, date).First(&event).Error
+	err := s.db.Where("code = ? AND event_date = ?", code, date).First(&event).Error
 	ruleID := rule.ID
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		event = models.WarningEvent{
-			RuleID: &ruleID, Code: rule.Code, Category: rule.Category, Level: rule.Level,
+			RuleID: &ruleID, Code: code, Category: rule.Category, Level: rule.Level,
 			Title: title, Description: description, MetricValue: metric, Threshold: rule.Threshold,
 			EventDate: date, DetectedAt: time.Now(), Status: models.WarningOpen,
 		}

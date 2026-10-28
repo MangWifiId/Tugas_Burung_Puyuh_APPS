@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"time"
 
@@ -99,6 +100,7 @@ func seedWarningRules(db *gorm.DB) error {
 		{Code: "mortality_spike", Name: "Lonjakan kematian", Category: "mortality", Level: models.LevelWaspada, Threshold: 50, Unit: "%", Description: "Jumlah kematian hari ini meningkat dibandingkan rata-rata 7 hari sebelumnya."},
 		{Code: "production_drop_warning", Name: "Produksi telur menurun", Category: "production", Level: models.LevelWaspada, Threshold: 15, Unit: "%", Description: "Produksi telur hari ini turun dibandingkan rata-rata 7 hari sebelumnya."},
 		{Code: "production_drop_critical", Name: "Penurunan produksi kritis", Category: "production", Level: models.LevelKritis, Threshold: 30, Unit: "%", Description: "Produksi telur hari ini turun drastis dibandingkan rata-rata 7 hari sebelumnya."},
+		{Code: "age_productivity_gap", Name: "Produktivitas di bawah standar umur", Category: "production", Level: models.LevelWaspada, Threshold: 10, Unit: "poin %", Description: "Produktivitas 7 hari suatu batch berada di bawah standar produktivitas menurut umur puyuh."},
 		{Code: "population_drop_warning", Name: "Populasi menurun signifikan", Category: "population", Level: models.LevelWaspada, Threshold: 3, Unit: "%", Description: "Populasi burung menurun signifikan dibandingkan 7 hari sebelumnya."},
 		{Code: "feed_gap_warning", Name: "Pakan tidak diterima", Category: "feed", Level: models.LevelWaspada, Threshold: 8, Unit: "hari", Description: "Tidak ada penerimaan pakan dalam jumlah hari yang melewati batas."},
 	}
@@ -132,10 +134,10 @@ func seedDemo(db *gorm.DB) error {
 
 	batch := models.QuailBatch{
 		Name:                "Batch Alpha",
-		HatchDate:           today.AddDays(-75),
-		EntryDate:           datePtr(today.AddDays(-68)),
+		HatchDate:           today.AddDays(-125),
+		EntryDate:           datePtr(today.AddDays(-118)),
 		InitialPopulation:   1200,
-		ProductionStartDate: datePtr(today.AddDays(-35)),
+		ProductionStartDate: datePtr(today.AddDays(-85)),
 		Status:              models.BatchStatusActive,
 		Notes:               "Data contoh untuk mencoba aplikasi.",
 	}
@@ -153,27 +155,14 @@ func seedDemo(db *gorm.DB) error {
 		return err
 	}
 
-	// Produksi 30 hari terakhir dengan tren sedikit menurun.
-	for i := 29; i >= 0; i-- {
-		day := today.AddDays(-i)
-		base := 910 - i*2 + rng.Intn(40)
-		prod := models.EggProduction{
-			BatchID:        &batch.ID,
-			ProductionDate: day,
-			EggCount:       base,
-			Notes:          "",
-		}
-		if err := db.Create(&prod).Error; err != nil {
-			return err
-		}
-	}
-
 	// Kematian harian kecil.
+	mortalityByDay := make([]int, 30)
 	for i := 29; i >= 0; i-- {
 		count := 1 + rng.Intn(4)
 		if i == 4 {
 			count = 22
 		}
+		mortalityByDay[i] = count
 		rec := models.MortalityRecord{
 			BatchID:    batch.ID,
 			RecordDate: today.AddDays(-i),
@@ -183,6 +172,30 @@ func seedDemo(db *gorm.DB) error {
 		if err := db.Create(&rec).Error; err != nil {
 			return err
 		}
+	}
+
+	// Produksi 30 hari terakhir mengikuti kurva umur: Batch Alpha saat ini
+	// berumur 125 hari, sehingga produksinya menurun perlahan seiring umur.
+	deathsSoFar := 0
+	for i := 29; i >= 0; i-- {
+		day := today.AddDays(-i)
+		age := 125 - i
+		standard := models.AgeProductivityStandard(age) / 100
+		factor := standard - 0.02 + (rng.Float64()-0.5)*0.03
+		if factor < 0 {
+			factor = 0
+		}
+		population := batch.InitialPopulation - deathsSoFar
+		prod := models.EggProduction{
+			BatchID:        &batch.ID,
+			ProductionDate: day,
+			EggCount:       int(math.Round(float64(population) * factor)),
+			Notes:          "",
+		}
+		if err := db.Create(&prod).Error; err != nil {
+			return err
+		}
+		deathsSoFar += mortalityByDay[i]
 	}
 
 	// Penerimaan pakan mingguan dengan perubahan harga.

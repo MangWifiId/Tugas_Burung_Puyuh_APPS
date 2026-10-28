@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -44,13 +45,26 @@ type ReportTotals struct {
 }
 
 type ReportResponse struct {
-	From    models.Date         `json:"from"`
-	To      models.Date         `json:"to"`
-	GroupBy string              `json:"group_by"`
-	Days    int                 `json:"days"`
-	Totals  ReportTotals        `json:"totals"`
-	Series  []ReportPoint       `json:"series"`
-	Batches []models.BatchStats `json:"batches"`
+	From      models.Date            `json:"from"`
+	To        models.Date            `json:"to"`
+	GroupBy   string                 `json:"group_by"`
+	Days      int                    `json:"days"`
+	Totals    ReportTotals           `json:"totals"`
+	Series    []ReportPoint          `json:"series"`
+	AgeSeries []AgeProductivityPoint `json:"age_series"`
+	Batches   []models.BatchStats    `json:"batches"`
+}
+
+// AgeProductivityPoint membandingkan produktivitas aktual dengan standar umur
+// pada kelompok umur (minggu) tertentu.
+type AgeProductivityPoint struct {
+	AgeWeeks     int     `json:"age_weeks"`
+	Label        string  `json:"label"`
+	Eggs         int     `json:"eggs"`
+	Population   int     `json:"population"`
+	Productivity float64 `json:"productivity"`
+	Standard     float64 `json:"standard"`
+	Samples      int     `json:"samples"`
 }
 
 type dayData struct {
@@ -152,22 +166,82 @@ func (s *ReportService) Overview(from, to models.Date, groupBy string) (*ReportR
 	if err := s.db.Order("hatch_date ASC").Find(&batches).Error; err != nil {
 		return nil, err
 	}
+	batchByID := map[uint]*models.QuailBatch{}
+	batchPopulation := map[uint]map[string]int{}
 	popByDay := map[string]int{}
 	for i := range batches {
 		batch := &batches[i]
+		batchByID[batch.ID] = batch
 		points, err := PopulationHistory(s.db, batch, from, to)
 		if err != nil {
 			return nil, err
 		}
+		daily := make(map[string]int, len(points))
 		for _, point := range points {
 			if point.Date.Before(batch.HatchDate) {
 				continue
 			}
 			popByDay[point.Date.String()] += point.Population
+			daily[point.Date.String()] = point.Population
 		}
+		batchPopulation[batch.ID] = daily
 	}
 	for _, key := range order {
 		days[key].population = popByDay[key]
+	}
+
+	// Produktivitas menurut umur: setiap catatan produksi dihitung terhadap
+	// populasi batch pada hari itu, lalu dikelompokkan per minggu umur.
+	type ageAggregate struct {
+		eggs, population, samples int
+	}
+	ageBuckets := map[int]*ageAggregate{}
+	for _, item := range productions {
+		if item.BatchID == nil {
+			continue
+		}
+		batch := batchByID[*item.BatchID]
+		if batch == nil {
+			continue
+		}
+		age := int(item.ProductionDate.Time().Sub(batch.HatchDate.Time()).Hours() / 24)
+		if age < 35 {
+			continue
+		}
+		population := batchPopulation[batch.ID][item.ProductionDate.String()]
+		if population <= 0 {
+			continue
+		}
+		week := age / 7
+		agg := ageBuckets[week]
+		if agg == nil {
+			agg = &ageAggregate{}
+			ageBuckets[week] = agg
+		}
+		agg.eggs += item.EggCount
+		agg.population += population
+		agg.samples++
+	}
+	ageWeeks := make([]int, 0, len(ageBuckets))
+	for week := range ageBuckets {
+		ageWeeks = append(ageWeeks, week)
+	}
+	sort.Ints(ageWeeks)
+	ageSeries := make([]AgeProductivityPoint, 0, len(ageWeeks))
+	for _, week := range ageWeeks {
+		agg := ageBuckets[week]
+		point := AgeProductivityPoint{
+			AgeWeeks:   week,
+			Label:      fmt.Sprintf("%d mg", week),
+			Eggs:       agg.eggs,
+			Population: agg.population,
+			Samples:    agg.samples,
+			Standard:   models.AgeProductivityStandard(week*7 + 3),
+		}
+		if agg.population > 0 {
+			point.Productivity = round2(float64(agg.eggs) / float64(agg.population) * 100)
+		}
+		ageSeries = append(ageSeries, point)
 	}
 
 	buckets := map[string]*ReportPoint{}
@@ -268,7 +342,7 @@ func (s *ReportService) Overview(from, to models.Date, groupBy string) (*ReportR
 
 	return &ReportResponse{
 		From: from, To: to, GroupBy: groupBy, Days: dayCount,
-		Totals: totals, Series: series, Batches: batchStats,
+		Totals: totals, Series: series, AgeSeries: ageSeries, Batches: batchStats,
 	}, nil
 }
 
@@ -302,6 +376,7 @@ type DashboardData struct {
 	UpcomingEvents    []models.CalendarEvent `json:"upcoming_events"`
 	RecentWarnings    []models.WarningEvent  `json:"recent_warnings"`
 	Charts            []ReportPoint          `json:"charts"`
+	AgeSeries         []AgeProductivityPoint `json:"age_series"`
 	Batches           []models.BatchStats    `json:"batches"`
 }
 
@@ -364,7 +439,7 @@ func (s *DashboardService) Load(from, to models.Date, groupBy string) (*Dashboar
 		MonthProductivity: monthReport.Totals.Productivity,
 		OpenWarnings:      openWarnings, CriticalWarnings: criticalWarnings,
 		UpcomingEvents: upcoming, RecentWarnings: recentWarnings,
-		Charts: report.Series, Batches: report.Batches,
+		Charts: report.Series, AgeSeries: report.AgeSeries, Batches: report.Batches,
 	}
 	if report.Totals.CurrentPopulation > 0 {
 		data.TodayProductivity = round2(float64(todayEggs) / float64(report.Totals.CurrentPopulation) * 100)
