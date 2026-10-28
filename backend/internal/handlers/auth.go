@@ -22,6 +22,19 @@ func (h *Handler) Login(c *gin.Context) {
 	utils.OK(c, result)
 }
 
+func (h *Handler) Register(c *gin.Context) {
+	var input services.RegisterInput
+	if !utils.BindJSON(c, &input) {
+		return
+	}
+	result, err := h.Auth.Register(input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.Created(c, result)
+}
+
 func (h *Handler) Me(c *gin.Context) {
 	user := currentUser(c)
 	if user == nil {

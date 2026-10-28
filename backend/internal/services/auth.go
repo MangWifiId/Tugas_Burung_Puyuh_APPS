@@ -27,6 +27,12 @@ type LoginInput struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type RegisterInput struct {
+	Name     string `json:"name" binding:"required,max=120"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+}
+
 type LoginResult struct {
 	Token     string      `json:"token"`
 	ExpiresAt time.Time   `json:"expires_at"`
@@ -54,6 +60,51 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, error) {
 	user.LastLoginAt = &now
 	_ = s.db.Model(&user).Update("last_login_at", now).Error
 	LogActivity(s.db, Actor{ID: user.ID, Name: user.Name}, "login", "auth", user.ID, "Masuk ke aplikasi")
+	return &LoginResult{Token: token, ExpiresAt: expiresAt, User: user}, nil
+}
+
+func (s *AuthService) Register(input RegisterInput) (*LoginResult, error) {
+	name := strings.TrimSpace(input.Name)
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+
+	var count int64
+	if err := s.db.Model(&models.User{}).Where("LOWER(email) = ?", email).Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		return nil, apperr.Conflict("email sudah digunakan")
+	}
+
+	hash, err := utils.HashPassword(input.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	role := models.RoleOwner
+	var existing int64
+	if err := s.db.Model(&models.User{}).Count(&existing).Error; err != nil {
+		return nil, err
+	}
+	if existing > 0 {
+		role = models.RoleStaff
+	}
+
+	user := models.User{
+		Name:         name,
+		Email:        email,
+		PasswordHash: hash,
+		Role:         role,
+	}
+	if err := s.db.Create(&user).Error; err != nil {
+		return nil, err
+	}
+
+	token, expiresAt, err := utils.GenerateToken(s.cfg.JWTSecret, user.ID, user.Role, s.cfg.JWTExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	LogActivity(s.db, Actor{ID: user.ID, Name: user.Name}, "register", "auth", user.ID, "Mendaftar akun baru")
 	return &LoginResult{Token: token, ExpiresAt: expiresAt, User: user}, nil
 }
 

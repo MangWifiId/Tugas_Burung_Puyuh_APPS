@@ -2,6 +2,11 @@ package models
 
 import "time"
 
+const (
+	RoleOwner = "owner"
+	RoleStaff = "staff"
+)
+
 type User struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
 	Name         string     `gorm:"size:120;not null" json:"name"`

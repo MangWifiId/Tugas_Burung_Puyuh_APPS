@@ -5,6 +5,7 @@ import { ConfirmProvider } from './providers/ConfirmProvider'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AppLayout } from './layouts/AppLayout'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProductionPage } from './pages/ProductionPage'
 import { SalesPage } from './pages/SalesPage'
@@ -25,6 +26,7 @@ export default function App() {
           <ConfirmProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/daftar" element={<RegisterPage />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                   <Route index element={<DashboardPage />} />

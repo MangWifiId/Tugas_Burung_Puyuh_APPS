@@ -31,6 +31,7 @@ func New(h *handlers.Handler) *gin.Engine {
 
 	api := router.Group("/api/v1")
 	api.POST("/auth/login", h.Login)
+	api.POST("/auth/register", h.Register)
 
 	auth := api.Group("")
 	auth.Use(middleware.Auth(h.Cfg.JWTSecret, h.Auth))
