@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -40,6 +41,13 @@ func Seed(db *gorm.DB, cfg *config.Config) error {
 }
 
 func seedAdmin(db *gorm.DB, cfg *config.Config) error {
+	// Jika email atau kata sandi admin tidak diisi melalui environment
+	// variabel, jangan membuat akun admin default. Pengguna dapat daftar
+	// sendiri melalui halaman /daftar setelah aplikasi online.
+	if strings.TrimSpace(cfg.AdminEmail) == "" || strings.TrimSpace(cfg.AdminPassword) == "" {
+		return nil
+	}
+
 	var count int64
 	if err := db.Model(&models.User{}).Count(&count).Error; err != nil {
 		return err
