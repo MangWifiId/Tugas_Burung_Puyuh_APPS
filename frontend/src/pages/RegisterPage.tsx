@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, Bird, Eye, EyeOff, Mail, LockKeyhole, TriangleAlert } from 'lucide-react'
+import { ArrowRight, Bird, Building2, Eye, EyeOff, Mail, LockKeyhole, TriangleAlert } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getErrorMessage } from '../services/api'
 import { Button } from '../components/ui/Button'
@@ -13,6 +13,7 @@ export function RegisterPage() {
   const { register, token } = useAuth()
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [farmName, setFarmName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -28,7 +29,7 @@ export function RegisterPage() {
     setLoading(true)
     setError(null)
     try {
-      await register(name.trim(), email.trim(), password)
+      await register(name.trim(), farmName.trim(), email.trim(), password)
       navigate('/', { replace: true })
     } catch (err) {
       setError(getErrorMessage(err))
@@ -60,7 +61,8 @@ export function RegisterPage() {
             Daftar kandang Anda
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-500">
-            Isi nama, email, dan kata sandi untuk mulai mencatat produksi puyuh.
+            Setiap akun memiliki kandang sendiri. Data produksi, penjualan, dan
+            pengaturan tidak akan terlihat oleh kandang lain.
           </p>
         </div>
 
@@ -79,6 +81,24 @@ export function RegisterPage() {
               placeholder="Pemilik Kandang"
               className="h-11"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="farmName" className="text-xs font-semibold text-stone-600">
+              Nama kandang
+            </label>
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+              <Input
+                id="farmName"
+                type="text"
+                required
+                value={farmName}
+                onChange={(event) => setFarmName(event.target.value)}
+                placeholder="Kandang Puyuh Sejahtera"
+                className="h-11 pl-10"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">

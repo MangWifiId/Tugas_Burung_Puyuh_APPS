@@ -10,6 +10,7 @@ const (
 
 type CalendarEvent struct {
 	ID           uint        `gorm:"primaryKey" json:"id"`
+	TenantID     uint        `gorm:"index" json:"-"`
 	Title        string      `gorm:"size:160;not null" json:"title"`
 	EventDate    Date        `gorm:"type:date;not null;index" json:"event_date"`
 	EventType    string      `gorm:"size:50;not null;default:lainnya;index" json:"event_type"`

@@ -4,6 +4,7 @@ import "time"
 
 type EggProduction struct {
 	ID             uint        `gorm:"primaryKey" json:"id"`
+	TenantID       uint        `gorm:"index" json:"-"`
 	BatchID        *uint       `gorm:"index" json:"batch_id,omitempty"`
 	Batch          *QuailBatch `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"batch,omitempty"`
 	ProductionDate Date        `gorm:"type:date;not null;index" json:"production_date"`
@@ -16,6 +17,7 @@ type EggProduction struct {
 
 type MortalityRecord struct {
 	ID         uint        `gorm:"primaryKey" json:"id"`
+	TenantID   uint        `gorm:"index" json:"-"`
 	BatchID    uint        `gorm:"not null;index" json:"batch_id"`
 	Batch      *QuailBatch `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"batch,omitempty"`
 	RecordDate Date        `gorm:"type:date;not null;index" json:"record_date"`

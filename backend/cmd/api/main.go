@@ -11,12 +11,15 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"gorm.io/gorm"
+
 	"manajemen-puyuh/backend/internal/config"
 	"manajemen-puyuh/backend/internal/database"
 	"manajemen-puyuh/backend/internal/handlers"
 	"manajemen-puyuh/backend/internal/models"
 	"manajemen-puyuh/backend/internal/routes"
 	"manajemen-puyuh/backend/internal/services"
+	"manajemen-puyuh/backend/internal/tenancy"
 )
 
 func main() {
@@ -38,20 +41,9 @@ func main() {
 	}
 
 	handler := &handlers.Handler{
-		Cfg:          cfg,
-		Auth:         services.NewAuthService(db, cfg),
-		Batches:      services.NewBatchService(db),
-		Adjust:       services.NewAdjustmentService(db),
-		Produce:      services.NewProductionService(db),
-		Sales:        services.NewSalesService(db),
-		Feed:         services.NewFeedService(db),
-		Mortality:    services.NewMortalityService(db),
-		Calendar:     services.NewCalendarService(db),
-		Warnings:     services.NewWarningService(db),
-		Reports:      services.NewReportService(db),
-		DashboardSvc: services.NewDashboardService(db),
-		Settings:     services.NewSettingService(db),
-		Activity:     services.NewActivityService(db),
+		Cfg:  cfg,
+		DB:   db,
+		Auth: services.NewAuthService(db, cfg),
 	}
 
 	router := routes.New(handler)
@@ -65,7 +57,7 @@ func main() {
 	}
 
 	stopBackground := make(chan struct{})
-	go generateWarningsPeriodically(handler, stopBackground)
+	go generateWarningsPeriodically(db, stopBackground)
 
 	go func() {
 		log.Printf("API berjalan di http://localhost:%s (env=%s, db=%s)", cfg.Port, cfg.Env, cfg.DBDriver)
@@ -88,7 +80,7 @@ func main() {
 	log.Println("server berhenti")
 }
 
-func generateWarningsPeriodically(handler *handlers.Handler, stop <-chan struct{}) {
+func generateWarningsPeriodically(db *gorm.DB, stop <-chan struct{}) {
 	ticker := time.NewTicker(6 * time.Hour)
 	defer ticker.Stop()
 	for {
@@ -96,8 +88,16 @@ func generateWarningsPeriodically(handler *handlers.Handler, stop <-chan struct{
 		case <-stop:
 			return
 		case <-ticker.C:
-			if _, err := handler.Warnings.GenerateFor(models.DateToday()); err != nil {
-				log.Printf("gagal membuat warning otomatis: %v", err)
+			var tenants []models.Tenant
+			if err := db.Find(&tenants).Error; err != nil {
+				log.Printf("gagal membaca daftar kandang: %v", err)
+				continue
+			}
+			for _, tenant := range tenants {
+				scoped := tenancy.WithTenant(db, context.Background(), tenant.ID)
+				if _, err := services.NewWarningService(scoped).GenerateFor(models.DateToday()); err != nil {
+					log.Printf("gagal membuat warning otomatis untuk kandang %d: %v", tenant.ID, err)
+				}
 			}
 		}
 	}

@@ -18,7 +18,7 @@ func queryUint(c *gin.Context, key string) uint {
 }
 
 func (h *Handler) ListBatches(c *gin.Context) {
-	data, err := h.Batches.List(c.Query("search"), c.DefaultQuery("status", "all"))
+	data, err := h.Batches(c).List(c.Query("search"), c.DefaultQuery("status", "all"))
 	if err != nil {
 		handleListError(c, "list batches", err)
 		return
@@ -32,7 +32,7 @@ func (h *Handler) GetBatch(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Batches.Get(id)
+	data, err := h.Batches(c).Get(id)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -45,7 +45,7 @@ func (h *Handler) CreateBatch(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Batches.Create(actor(c), input)
+	data, err := h.Batches(c).Create(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) UpdateBatch(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Batches.Update(actor(c), id, input)
+	data, err := h.Batches(c).Update(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -77,7 +77,7 @@ func (h *Handler) DeleteBatch(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Batches.Delete(actor(c), id); err != nil {
+	if err := h.Batches(c).Delete(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
@@ -94,7 +94,7 @@ func (h *Handler) BatchHistory(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.Batches.History(id, from, to)
+	data, err := h.Batches(c).History(id, from, to)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -107,7 +107,7 @@ func (h *Handler) ListAdjustments(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.Adjust.List(queryUint(c, "batch_id"), from, to)
+	data, err := h.Adjust(c).List(queryUint(c, "batch_id"), from, to)
 	if err != nil {
 		handleListError(c, "list adjustments", err)
 		return
@@ -120,7 +120,7 @@ func (h *Handler) CreateAdjustment(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Adjust.Create(actor(c), input)
+	data, err := h.Adjust(c).Create(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -138,7 +138,7 @@ func (h *Handler) UpdateAdjustment(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Adjust.Update(actor(c), id, input)
+	data, err := h.Adjust(c).Update(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -152,7 +152,7 @@ func (h *Handler) DeleteAdjustment(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Adjust.Delete(actor(c), id); err != nil {
+	if err := h.Adjust(c).Delete(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}

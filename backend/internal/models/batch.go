@@ -9,6 +9,7 @@ const (
 
 type QuailBatch struct {
 	ID                  uint      `gorm:"primaryKey" json:"id"`
+	TenantID            uint      `gorm:"index" json:"-"`
 	Name                string    `gorm:"size:120;not null" json:"name"`
 	HatchDate           Date      `gorm:"type:date;not null;index" json:"hatch_date"`
 	EntryDate           *Date     `gorm:"type:date" json:"entry_date,omitempty"`
@@ -22,6 +23,7 @@ type QuailBatch struct {
 
 type PopulationAdjustment struct {
 	ID         uint        `gorm:"primaryKey" json:"id"`
+	TenantID   uint        `gorm:"index" json:"-"`
 	BatchID    uint        `gorm:"not null;index" json:"batch_id"`
 	Batch      *QuailBatch `gorm:"constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"batch,omitempty"`
 	AdjustDate Date        `gorm:"type:date;not null;index" json:"adjust_date"`

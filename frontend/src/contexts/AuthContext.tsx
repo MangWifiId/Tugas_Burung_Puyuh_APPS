@@ -17,7 +17,7 @@ interface AuthContextValue {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<User>
-  register: (name: string, email: string, password: string) => Promise<User>
+  register: (name: string, farmName: string, email: string, password: string) => Promise<User>
   logout: () => Promise<void>
   updateUser: (user: User) => void
 }
@@ -80,9 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user
   }, [])
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
+  const register = useCallback(async (name: string, farmName: string, email: string, password: string) => {
     const response = await api.post<ApiResponse<LoginResult>>('/auth/register', {
       name,
+      farm_name: farmName,
       email,
       password,
     })

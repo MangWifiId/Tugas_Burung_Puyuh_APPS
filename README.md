@@ -360,6 +360,7 @@ Menu utama aplikasi:
 
 Rancangan tabel utama:
 
+-   `tenants` --- data kandang/usaha (satu user = satu kandang).
 -   `users` --- data pengguna.
 -   `quail_batches` --- kelompok atau batch puyuh.
 -   `egg_productions` --- produksi telur harian.
@@ -377,6 +378,30 @@ Rancangan tabel utama:
 
 Relasi tabel harus dirancang agar data transaksi dan riwayat tetap
 terjaga.
+
+### 7.1 Multi-Tenancy
+
+Aplikasi menggunakan model **satu user = satu kandang** dengan satu
+database bersama:
+
+-   Tabel `tenants` menyimpan nama kandang dan slug unik.
+-   Setiap tabel operasional memiliki kolom `tenant_id`.
+-   Saat daftar, backend membuat tenant baru, user owner, pengaturan
+    awal, dan aturan warning khusus tenant tersebut.
+-   Tenant ditentukan dari akun yang login (satu domain, tanpa subdomain
+    atau kode kandang), bukan dari input request.
+-   Isolasi data dipasang terpusat melalui GORM callback di
+    `backend/internal/tenancy`: query/update/delete otomatis ditambah
+    filter `tenant_id`, dan create otomatis mengisi `tenant_id`.
+-   Keunikan data berlaku per tenant: `app_settings (tenant_id, key)`,
+    `warning_rules (tenant_id, code)`, `warning_events (tenant_id, code,
+    event_date)`, dan `sales_notes (tenant_id, note_number)`. Email user
+    tetap unik global karena dipakai untuk login.
+-   Data lama dimigrasikan otomatis ke tenant default "Kandang Utama"
+    saat backend pertama kali dijalankan setelah pembaruan ini.
+-   Untuk PostgreSQL di balik connection pooler (misalnya Neon), koneksi
+    memakai `default_query_exec_mode=simple_protocol` agar prepared
+    statement tidak bermasalah setelah perubahan skema.
 
 ## 8. Struktur Backend
 
@@ -568,11 +593,15 @@ Modul yang sudah diimplementasikan:
     dikonfigurasi, dan riwayat pemeriksaan.
 -   Laporan dan grafik dengan filter periode.
 -   Pengaturan usaha, profil/akun, dan activity log.
+-   Multi-tenancy: setiap akun memiliki kandang sendiri; data antar
+    kandang terisolasi otomatis di backend.
 
 Catatan implementasi:
 
 -   Migrasi tabel dijalankan otomatis melalui GORM `AutoMigrate` saat
     backend start.
+-   Migrasi multi-tenancy membuat tenant default dan mengisi `tenant_id`
+    seluruh data lama secara otomatis (idempoten).
 -   Data demo dapat dibuat otomatis dengan `SEED_DEMO=true`.
 -   Penghapusan/penolakan data operasional tetap meninggalkan jejak di
     `activity_logs`.

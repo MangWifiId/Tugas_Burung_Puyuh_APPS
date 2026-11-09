@@ -210,20 +210,14 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {!import.meta.env.PROD && (
-            <div className="mt-6 rounded-xl border border-stone-200 bg-white px-4 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-stone-400">
-                Akun demo lokal
-              </p>
-              <p className="mt-1 text-xs text-stone-500">
-                Email <span className="font-semibold text-stone-700">admin@kandang.local</span>
-                <br />
-                Kata sandi <span className="font-semibold text-stone-700">Admin123!</span>
-              </p>
-            </div>
-          )}
-
           <p className="mt-8 text-center text-[11px] leading-relaxed text-stone-400">
+            Belum punya akun?{' '}
+            <a href="/daftar" className="font-semibold text-emerald-600 hover:text-emerald-500">
+              Buat akun baru
+            </a>
+          </p>
+
+          <p className="mt-4 text-center text-[11px] leading-relaxed text-stone-400">
             Aplikasi pencatatan internal. Bukan marketplace atau aplikasi kasir.
           </p>
         </div>

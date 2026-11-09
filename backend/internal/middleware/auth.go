@@ -11,7 +11,10 @@ import (
 	"manajemen-puyuh/backend/internal/utils"
 )
 
-const userContextKey = "auth_user"
+const (
+	userContextKey   = "auth_user"
+	tenantContextKey = "auth_tenant"
+)
 
 func Auth(secret string, authService *services.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -34,7 +37,13 @@ func Auth(secret string, authService *services.AuthService) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if user.TenantID == 0 {
+			utils.Fail(c, http.StatusUnauthorized, "akun belum terhubung ke kandang", nil)
+			c.Abort()
+			return
+		}
 		c.Set(userContextKey, user)
+		c.Set(tenantContextKey, user.TenantID)
 		c.Next()
 	}
 }
@@ -46,4 +55,14 @@ func CurrentUser(c *gin.Context) *models.User {
 		}
 	}
 	return nil
+}
+
+// TenantID mengembalikan id kandang milik user yang sedang login.
+func TenantID(c *gin.Context) uint {
+	if value, ok := c.Get(tenantContextKey); ok {
+		if id, ok := value.(uint); ok {
+			return id
+		}
+	}
+	return 0
 }

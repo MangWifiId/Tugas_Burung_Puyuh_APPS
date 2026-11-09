@@ -16,7 +16,7 @@ func (h *Handler) ListProductions(c *gin.Context) {
 	filter := services.ProductionFilter{
 		From: from, To: to, BatchID: queryUint(c, "batch_id"), Page: page, Limit: limit,
 	}
-	data, total, err := h.Produce.List(filter)
+	data, total, err := h.Produce(c).List(filter)
 	if err != nil {
 		handleListError(c, "list productions", err)
 		return
@@ -29,7 +29,7 @@ func (h *Handler) CreateProduction(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Produce.Create(actor(c), input)
+	data, err := h.Produce(c).Create(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -47,7 +47,7 @@ func (h *Handler) UpdateProduction(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Produce.Update(actor(c), id, input)
+	data, err := h.Produce(c).Update(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -61,7 +61,7 @@ func (h *Handler) DeleteProduction(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Produce.Delete(actor(c), id); err != nil {
+	if err := h.Produce(c).Delete(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
@@ -78,7 +78,7 @@ func (h *Handler) ProductionSummary(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Produce.Summary(from, to, groupBy)
+	data, err := h.Produce(c).Summary(from, to, groupBy)
 	if err != nil {
 		utils.HandleError(c, err)
 		return

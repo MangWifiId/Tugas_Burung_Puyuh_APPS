@@ -13,7 +13,7 @@ func (h *Handler) ListFeed(c *gin.Context) {
 		return
 	}
 	page, limit, _ := utils.Pagination(c)
-	data, total, err := h.Feed.List(services.FeedFilter{
+	data, total, err := h.Feed(c).List(services.FeedFilter{
 		From: from, To: to, FeedType: c.Query("feed_type"), Page: page, Limit: limit,
 	})
 	if err != nil {
@@ -28,7 +28,7 @@ func (h *Handler) CreateFeed(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Feed.Create(actor(c), input)
+	data, err := h.Feed(c).Create(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -46,7 +46,7 @@ func (h *Handler) UpdateFeed(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Feed.Update(actor(c), id, input)
+	data, err := h.Feed(c).Update(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -60,7 +60,7 @@ func (h *Handler) DeleteFeed(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Feed.Delete(actor(c), id); err != nil {
+	if err := h.Feed(c).Delete(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
@@ -72,7 +72,7 @@ func (h *Handler) ListFeedPrices(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.Feed.PriceHistory(c.Query("feed_type"), from, to)
+	data, err := h.Feed(c).PriceHistory(c.Query("feed_type"), from, to)
 	if err != nil {
 		handleListError(c, "list feed prices", err)
 		return
@@ -85,7 +85,7 @@ func (h *Handler) AddFeedPrice(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Feed.AddPrice(actor(c), input)
+	data, err := h.Feed(c).AddPrice(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -94,7 +94,7 @@ func (h *Handler) AddFeedPrice(c *gin.Context) {
 }
 
 func (h *Handler) LatestFeedPrice(c *gin.Context) {
-	data, err := h.Feed.LatestPrice(c.DefaultQuery("feed_type", "layer"))
+	data, err := h.Feed(c).LatestPrice(c.DefaultQuery("feed_type", "layer"))
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -107,7 +107,7 @@ func (h *Handler) FeedSummary(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.Feed.Summary(from, to)
+	data, err := h.Feed(c).Summary(from, to)
 	if err != nil {
 		utils.HandleError(c, err)
 		return

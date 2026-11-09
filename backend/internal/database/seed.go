@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
@@ -12,6 +13,7 @@ import (
 
 	"manajemen-puyuh/backend/internal/config"
 	"manajemen-puyuh/backend/internal/models"
+	"manajemen-puyuh/backend/internal/tenancy"
 	"manajemen-puyuh/backend/internal/utils"
 )
 
@@ -23,24 +25,35 @@ type seedSetting struct {
 }
 
 func Seed(db *gorm.DB, cfg *config.Config) error {
-	if err := seedAdmin(db, cfg); err != nil {
+	tenant, err := EnsureDefaultTenant(db)
+	if err != nil {
 		return err
 	}
-	if err := seedSettings(db); err != nil {
+	if err := seedAdmin(db, cfg, tenant.ID); err != nil {
 		return err
 	}
-	if err := seedWarningRules(db); err != nil {
+	if err := SeedTenant(db, tenant.ID); err != nil {
 		return err
 	}
 	if cfg.SeedDemo {
-		if err := seedDemo(db); err != nil {
+		if err := seedDemo(db, tenant.ID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func seedAdmin(db *gorm.DB, cfg *config.Config) error {
+// SeedTenant menyiapkan pengaturan dan aturan warning default untuk satu tenant.
+// Aman dipanggil berulang karena hanya membuat data yang belum ada.
+func SeedTenant(db *gorm.DB, tenantID uint) error {
+	scoped := tenancy.WithTenant(db, context.Background(), tenantID)
+	if err := seedSettings(scoped); err != nil {
+		return err
+	}
+	return seedWarningRules(scoped)
+}
+
+func seedAdmin(db *gorm.DB, cfg *config.Config, tenantID uint) error {
 	// Jika email atau kata sandi admin tidak diisi melalui environment
 	// variabel, jangan membuat akun admin default. Pengguna dapat daftar
 	// sendiri melalui halaman /daftar setelah aplikasi online.
@@ -60,6 +73,7 @@ func seedAdmin(db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 	admin := models.User{
+		TenantID:     tenantID,
 		Name:         cfg.AdminName,
 		Email:        cfg.AdminEmail,
 		PasswordHash: hash,
@@ -129,7 +143,8 @@ func seedWarningRules(db *gorm.DB) error {
 	return nil
 }
 
-func seedDemo(db *gorm.DB) error {
+func seedDemo(db *gorm.DB, tenantID uint) error {
+	db = tenancy.WithTenant(db, context.Background(), tenantID)
 	var count int64
 	db.Model(&models.QuailBatch{}).Count(&count)
 	if count > 0 {

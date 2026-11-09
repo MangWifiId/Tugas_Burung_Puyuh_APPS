@@ -32,7 +32,7 @@ func (h *Handler) ListCalendar(c *gin.Context) {
 		utils.HandleError(c, apperr.BadRequest("tanggal awal tidak boleh melebihi tanggal akhir"))
 		return
 	}
-	data, err := h.Calendar.List(from, to, queryUint(c, "batch_id"), c.Query("event_type"), c.DefaultQuery("status", "all"))
+	data, err := h.Calendar(c).List(from, to, queryUint(c, "batch_id"), c.Query("event_type"), c.DefaultQuery("status", "all"))
 	if err != nil {
 		handleListError(c, "list calendar", err)
 		return
@@ -41,7 +41,7 @@ func (h *Handler) ListCalendar(c *gin.Context) {
 }
 
 func (h *Handler) UpcomingEvents(c *gin.Context) {
-	data, err := h.Calendar.Upcoming(7, 10)
+	data, err := h.Calendar(c).Upcoming(7, 10)
 	if err != nil {
 		handleListError(c, "upcoming events", err)
 		return
@@ -55,7 +55,7 @@ func (h *Handler) GetEvent(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Calendar.Get(id)
+	data, err := h.Calendar(c).Get(id)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -68,7 +68,7 @@ func (h *Handler) CreateEvent(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Calendar.Create(actor(c), input)
+	data, err := h.Calendar(c).Create(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -86,7 +86,7 @@ func (h *Handler) UpdateEvent(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Calendar.Update(actor(c), id, input)
+	data, err := h.Calendar(c).Update(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -100,7 +100,7 @@ func (h *Handler) DeleteEvent(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Calendar.Delete(actor(c), id); err != nil {
+	if err := h.Calendar(c).Delete(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}

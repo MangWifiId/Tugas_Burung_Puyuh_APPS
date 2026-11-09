@@ -13,7 +13,7 @@ func (h *Handler) ListPickups(c *gin.Context) {
 		return
 	}
 	page, limit, _ := utils.Pagination(c)
-	data, total, err := h.Sales.ListPickups(services.PickupFilter{
+	data, total, err := h.Sales(c).ListPickups(services.PickupFilter{
 		From: from, To: to, Status: c.DefaultQuery("status", "all"), Page: page, Limit: limit,
 	})
 	if err != nil {
@@ -28,7 +28,7 @@ func (h *Handler) CreatePickup(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Sales.CreatePickup(actor(c), input)
+	data, err := h.Sales(c).CreatePickup(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -46,7 +46,7 @@ func (h *Handler) UpdatePickup(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Sales.UpdatePickup(actor(c), id, input)
+	data, err := h.Sales(c).UpdatePickup(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -60,7 +60,7 @@ func (h *Handler) DeletePickup(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Sales.DeletePickup(actor(c), id); err != nil {
+	if err := h.Sales(c).DeletePickup(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
@@ -72,7 +72,7 @@ func (h *Handler) LinkablePickups(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.Sales.PickupsForLinking(from, to)
+	data, err := h.Sales(c).PickupsForLinking(from, to)
 	if err != nil {
 		handleListError(c, "linkable pickups", err)
 		return
@@ -86,7 +86,7 @@ func (h *Handler) ListNotes(c *gin.Context) {
 		return
 	}
 	page, limit, _ := utils.Pagination(c)
-	data, total, err := h.Sales.ListNotes(services.NoteFilter{
+	data, total, err := h.Sales(c).ListNotes(services.NoteFilter{
 		From: from, To: to, Search: c.Query("search"), Page: page, Limit: limit,
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func (h *Handler) GetNote(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Sales.GetNote(id)
+	data, err := h.Sales(c).GetNote(id)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -115,7 +115,7 @@ func (h *Handler) CreateNote(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Sales.CreateNote(actor(c), input)
+	data, err := h.Sales(c).CreateNote(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -133,7 +133,7 @@ func (h *Handler) UpdateNote(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Sales.UpdateNote(actor(c), id, input)
+	data, err := h.Sales(c).UpdateNote(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -147,7 +147,7 @@ func (h *Handler) DeleteNote(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Sales.DeleteNote(actor(c), id); err != nil {
+	if err := h.Sales(c).DeleteNote(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
@@ -159,7 +159,7 @@ func (h *Handler) SalesSummary(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.Sales.Summary(from, to)
+	data, err := h.Sales(c).Summary(from, to)
 	if err != nil {
 		utils.HandleError(c, err)
 		return

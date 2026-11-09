@@ -16,7 +16,7 @@ func (h *Handler) ListMortality(c *gin.Context) {
 	filter := services.MortalityFilter{
 		From: from, To: to, BatchID: queryUint(c, "batch_id"), Page: page, Limit: limit,
 	}
-	data, total, err := h.Mortality.List(filter)
+	data, total, err := h.Mortality(c).List(filter)
 	if err != nil {
 		handleListError(c, "list mortality", err)
 		return
@@ -29,7 +29,7 @@ func (h *Handler) CreateMortality(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Mortality.Create(actor(c), input)
+	data, err := h.Mortality(c).Create(actor(c), input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -47,7 +47,7 @@ func (h *Handler) UpdateMortality(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Mortality.Update(actor(c), id, input)
+	data, err := h.Mortality(c).Update(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -61,7 +61,7 @@ func (h *Handler) DeleteMortality(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	if err := h.Mortality.Delete(actor(c), id); err != nil {
+	if err := h.Mortality(c).Delete(actor(c), id); err != nil {
 		utils.HandleError(c, err)
 		return
 	}
@@ -78,7 +78,7 @@ func (h *Handler) MortalitySummary(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Mortality.Summary(from, to, groupBy)
+	data, err := h.Mortality(c).Summary(from, to, groupBy)
 	if err != nil {
 		utils.HandleError(c, err)
 		return

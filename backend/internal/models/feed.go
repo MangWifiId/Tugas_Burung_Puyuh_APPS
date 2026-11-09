@@ -4,6 +4,7 @@ import "time"
 
 type FeedReceipt struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
+	TenantID     uint      `gorm:"index" json:"-"`
 	ReceivedDate Date      `gorm:"type:date;not null;index" json:"received_date"`
 	FeedType     string    `gorm:"size:80;not null;default:layer" json:"feed_type"`
 	Sacks        float64   `gorm:"not null" json:"sacks"`
@@ -17,6 +18,7 @@ func (f FeedReceipt) TotalPrice() float64 { return float64(f.Sacks) * f.PricePer
 
 type FeedPriceHistory struct {
 	ID            uint      `gorm:"primaryKey" json:"id"`
+	TenantID      uint      `gorm:"index" json:"-"`
 	FeedType      string    `gorm:"size:80;not null;index" json:"feed_type"`
 	PricePerSack  float64   `gorm:"not null" json:"price_per_sack"`
 	EffectiveDate Date      `gorm:"type:date;not null;index" json:"effective_date"`

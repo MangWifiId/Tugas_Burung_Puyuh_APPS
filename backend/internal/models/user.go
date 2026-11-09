@@ -9,6 +9,7 @@ const (
 
 type User struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
+	TenantID     uint       `gorm:"index" json:"tenant_id"`
 	Name         string     `gorm:"size:120;not null" json:"name"`
 	Email        string     `gorm:"size:190;uniqueIndex;not null" json:"email"`
 	PasswordHash string     `gorm:"size:255;not null" json:"-"`
@@ -20,6 +21,7 @@ type User struct {
 
 type ActivityLog struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
+	TenantID    uint      `gorm:"index" json:"-"`
 	UserID      *uint     `json:"user_id,omitempty"`
 	UserName    string    `gorm:"size:120" json:"user_name"`
 	Action      string    `gorm:"size:30;not null;index" json:"action"`

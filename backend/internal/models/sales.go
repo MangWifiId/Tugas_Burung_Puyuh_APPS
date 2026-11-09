@@ -9,6 +9,7 @@ const (
 
 type EggPickup struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
+	TenantID     uint      `gorm:"index" json:"-"`
 	PickupDate   Date      `gorm:"type:date;not null;index" json:"pickup_date"`
 	EggCount     int       `gorm:"not null" json:"egg_count"`
 	PricePerUnit *float64  `json:"price_per_unit,omitempty"`
@@ -20,7 +21,8 @@ type EggPickup struct {
 
 type SalesNote struct {
 	ID            uint        `gorm:"primaryKey" json:"id"`
-	NoteNumber    string      `gorm:"size:80;uniqueIndex;not null" json:"note_number"`
+	TenantID      uint        `gorm:"index;uniqueIndex:idx_sales_notes_tenant_number" json:"-"`
+	NoteNumber    string      `gorm:"size:80;uniqueIndex:idx_sales_notes_tenant_number;not null" json:"note_number"`
 	NoteDate      Date        `gorm:"type:date;not null;index" json:"note_date"`
 	PeriodStart   *Date       `gorm:"type:date" json:"period_start,omitempty"`
 	PeriodEnd     *Date       `gorm:"type:date" json:"period_end,omitempty"`

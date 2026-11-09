@@ -16,13 +16,13 @@ func (h *Handler) ListWarnings(c *gin.Context) {
 		return
 	}
 	if c.Query("generate") == "true" {
-		if _, err := h.Warnings.GenerateFor(models.DateToday()); err != nil {
+		if _, err := h.Warnings(c).GenerateFor(models.DateToday()); err != nil {
 			handleListError(c, "generate warnings", err)
 			return
 		}
 	}
 	page, limit, _ := utils.Pagination(c)
-	data, total, err := h.Warnings.List(services.WarningFilter{
+	data, total, err := h.Warnings(c).List(services.WarningFilter{
 		From: from, To: to, Status: c.DefaultQuery("status", "all"),
 		Category: c.Query("category"), Level: c.Query("level"),
 		Page: page, Limit: limit,
@@ -49,7 +49,7 @@ func (h *Handler) GenerateWarnings(c *gin.Context) {
 			date = *input.Date
 		}
 	}
-	events, err := h.Warnings.GenerateFor(date)
+	events, err := h.Warnings(c).GenerateFor(date)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) AcknowledgeWarning(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Warnings.Acknowledge(actor(c), id)
+	data, err := h.Warnings(c).Acknowledge(actor(c), id)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -72,7 +72,7 @@ func (h *Handler) AcknowledgeWarning(c *gin.Context) {
 }
 
 func (h *Handler) ListWarningRules(c *gin.Context) {
-	data, err := h.Warnings.Rules()
+	data, err := h.Warnings(c).Rules()
 	if err != nil {
 		handleListError(c, "list warning rules", err)
 		return
@@ -90,7 +90,7 @@ func (h *Handler) UpdateWarningRule(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Warnings.UpdateRule(actor(c), id, input)
+	data, err := h.Warnings(c).UpdateRule(actor(c), id, input)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -108,7 +108,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.DashboardSvc.Load(from, to, groupBy)
+	data, err := h.DashboardSvc(c).Load(from, to, groupBy)
 	if err != nil {
 		handleListError(c, "dashboard", err)
 		return
@@ -131,7 +131,7 @@ func (h *Handler) Report(c *gin.Context) {
 		utils.HandleError(c, err)
 		return
 	}
-	data, err := h.Reports.Overview(from, to, groupBy)
+	data, err := h.Reports(c).Overview(from, to, groupBy)
 	if err != nil {
 		handleListError(c, "report", err)
 		return
@@ -141,7 +141,7 @@ func (h *Handler) Report(c *gin.Context) {
 
 func (h *Handler) ListActivities(c *gin.Context) {
 	page, limit, _ := utils.Pagination(c)
-	data, total, err := h.Activity.List(page, limit)
+	data, total, err := h.Activity(c).List(page, limit)
 	if err != nil {
 		handleListError(c, "list activities", err)
 		return
@@ -154,7 +154,7 @@ type settingsInput struct {
 }
 
 func (h *Handler) ListSettings(c *gin.Context) {
-	data, err := h.Settings.List()
+	data, err := h.Settings(c).List()
 	if err != nil {
 		handleListError(c, "list settings", err)
 		return
@@ -167,7 +167,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 	if !utils.BindJSON(c, &input) {
 		return
 	}
-	data, err := h.Settings.Update(actor(c), input.Settings)
+	data, err := h.Settings(c).Update(actor(c), input.Settings)
 	if err != nil {
 		utils.HandleError(c, err)
 		return
@@ -176,7 +176,7 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 }
 
 func (h *Handler) WarningCounts(c *gin.Context) {
-	open, critical, err := h.Warnings.CountOpen()
+	open, critical, err := h.Warnings(c).CountOpen()
 	if err != nil {
 		utils.HandleError(c, err)
 		return
