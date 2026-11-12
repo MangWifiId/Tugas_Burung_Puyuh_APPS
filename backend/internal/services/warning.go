@@ -3,20 +3,26 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
 
 	"manajemen-puyuh/backend/internal/apperr"
+	"manajemen-puyuh/backend/internal/mailer"
 	"manajemen-puyuh/backend/internal/models"
+	"manajemen-puyuh/backend/internal/tenancy"
 )
 
 type WarningService struct {
-	db *gorm.DB
+	db     *gorm.DB
+	mailer *mailer.Mailer
 }
 
-func NewWarningService(db *gorm.DB) *WarningService { return &WarningService{db: db} }
+func NewWarningService(db *gorm.DB, m *mailer.Mailer) *WarningService {
+	return &WarningService{db: db, mailer: m}
+}
 
 func (s *WarningService) enabled() bool {
 	var setting models.AppSetting
@@ -131,16 +137,20 @@ func (s *WarningService) GenerateFor(date models.Date) ([]models.WarningEvent, e
 	}
 
 	results := []models.WarningEvent{}
+	newEvents := []models.WarningEvent{}
 	create := func(rule *models.WarningRule, title, description string, metric float64) error {
 		if rule == nil {
 			return nil
 		}
-		event, err := s.upsert(rule, date, title, description, metric)
+		event, created, err := s.upsert(rule, date, title, description, metric)
 		if err != nil {
 			return err
 		}
 		if event != nil {
 			results = append(results, *event)
+			if created {
+				newEvents = append(newEvents, *event)
+			}
 		}
 		return nil
 	}
@@ -148,12 +158,15 @@ func (s *WarningService) GenerateFor(date models.Date) ([]models.WarningEvent, e
 		if rule == nil {
 			return nil
 		}
-		event, err := s.upsertWithCode(rule, code, date, title, description, metric)
+		event, created, err := s.upsertWithCode(rule, code, date, title, description, metric)
 		if err != nil {
 			return err
 		}
 		if event != nil {
 			results = append(results, *event)
+			if created {
+				newEvents = append(newEvents, *event)
+			}
 		}
 		return nil
 	}
@@ -279,14 +292,52 @@ func (s *WarningService) GenerateFor(date models.Date) ([]models.WarningEvent, e
 		}
 	}
 
+	s.notifyCritical(newEvents)
 	return results, nil
 }
 
-func (s *WarningService) upsert(rule *models.WarningRule, date models.Date, title, description string, metric float64) (*models.WarningEvent, error) {
+// notifyCritical mengirim email ke pemilik kandang yang emailnya sudah
+// terverifikasi ketika ada warning kritis baru. Kegagalan pengiriman hanya
+// dicatat di log agar proses pembuatan warning tetap berhasil.
+func (s *WarningService) notifyCritical(events []models.WarningEvent) {
+	if s.mailer == nil || !s.mailer.Enabled() {
+		return
+	}
+	critical := make([]models.WarningEvent, 0, len(events))
+	for _, event := range events {
+		if event.Level == models.LevelKritis {
+			critical = append(critical, event)
+		}
+	}
+	if len(critical) == 0 {
+		return
+	}
+	tenantID, ok := tenancy.TenantID(s.db)
+	if !ok {
+		return
+	}
+	var tenant models.Tenant
+	if err := s.db.First(&tenant, tenantID).Error; err != nil {
+		log.Printf("gagal membaca kandang %d untuk notifikasi email: %v", tenantID, err)
+		return
+	}
+	var owners []models.User
+	if err := s.db.Where("tenant_id = ? AND role = ? AND email_verified = ?", tenantID, models.RoleOwner, true).
+		Find(&owners).Error; err != nil {
+		log.Printf("gagal membaca pemilik kandang %d untuk notifikasi email: %v", tenantID, err)
+		return
+	}
+	subject := mailer.WarningSubject(tenant.Name, critical)
+	for _, owner := range owners {
+		s.mailer.SendAsync(owner.Email, subject, s.mailer.WarningBody(owner.Name, tenant.Name, critical))
+	}
+}
+
+func (s *WarningService) upsert(rule *models.WarningRule, date models.Date, title, description string, metric float64) (*models.WarningEvent, bool, error) {
 	return s.upsertWithCode(rule, rule.Code, date, title, description, metric)
 }
 
-func (s *WarningService) upsertWithCode(rule *models.WarningRule, code string, date models.Date, title, description string, metric float64) (*models.WarningEvent, error) {
+func (s *WarningService) upsertWithCode(rule *models.WarningRule, code string, date models.Date, title, description string, metric float64) (*models.WarningEvent, bool, error) {
 	var event models.WarningEvent
 	err := s.db.Where("code = ? AND event_date = ?", code, date).First(&event).Error
 	ruleID := rule.ID
@@ -297,12 +348,12 @@ func (s *WarningService) upsertWithCode(rule *models.WarningRule, code string, d
 			EventDate: date, DetectedAt: time.Now(), Status: models.WarningOpen,
 		}
 		if err := s.db.Create(&event).Error; err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return &event, nil
+		return &event, true, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if event.Status == models.WarningOpen {
 		event.Title = title
@@ -312,10 +363,10 @@ func (s *WarningService) upsertWithCode(rule *models.WarningRule, code string, d
 		event.Level = rule.Level
 		event.Category = rule.Category
 		if err := s.db.Save(&event).Error; err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
-	return &event, nil
+	return &event, false, nil
 }
 
 type WarningFilter struct {

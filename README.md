@@ -341,6 +341,29 @@ Produktivitas telur.
 Filter laporan: - Hari ini. - Minggu ini. - Bulan ini. - Bulan
 sebelumnya. - Rentang tanggal khusus.
 
+### 5.10 Verifikasi Email dan Notifikasi
+
+Aplikasi dapat mengirim email melalui SMTP (Gmail App Password atau
+penyedia SMTP lain). Dua fitur yang memakainya:
+
+1.  **Verifikasi email saat daftar.** Akun baru harus membuka tautan
+    verifikasi sebelum bisa masuk. Tautan berlaku 24 jam dan dapat
+    dikirim ulang dari halaman login.
+2.  **Notifikasi warning kritis.** Saat sistem membuat warning baru
+    dengan level `kritis`, email dikirim ke seluruh pemilik kandang yang
+    emailnya sudah terverifikasi.
+
+Aturan implementasi:
+
+-   Token verifikasi disimpan sebagai hash SHA-256 di database; token
+    asli hanya ada di tautan email.
+-   Bila SMTP belum diisi, pendaftaran baru otomatis terverifikasi agar
+    pemakaian lokal tidak terhambat.
+-   Pengguna lama ditandai terverifikasi satu kali saat migrasi, sehingga
+    tidak terkunci oleh fitur baru.
+-   Notifikasi hanya dikirim untuk warning kritis yang **baru dibuat**,
+    bukan setiap kali halaman dibuka.
+
 ## 6. Struktur Menu
 
 Menu utama aplikasi:
@@ -595,6 +618,8 @@ Modul yang sudah diimplementasikan:
 -   Pengaturan usaha, profil/akun, dan activity log.
 -   Multi-tenancy: setiap akun memiliki kandang sendiri; data antar
     kandang terisolasi otomatis di backend.
+-   Verifikasi email saat daftar dan notifikasi email untuk warning
+    kritis melalui SMTP.
 
 Catatan implementasi:
 
@@ -602,6 +627,8 @@ Catatan implementasi:
     backend start.
 -   Migrasi multi-tenancy membuat tenant default dan mengisi `tenant_id`
     seluruh data lama secara otomatis (idempoten).
+-   Saat kolom verifikasi email pertama kali ditambahkan, pengguna lama
+    otomatis ditandai terverifikasi agar tidak terkunci.
 -   Data demo dapat dibuat otomatis dengan `SEED_DEMO=true`.
 -   Penghapusan/penolakan data operasional tetap meninggalkan jejak di
     `activity_logs`.
@@ -644,6 +671,29 @@ SQLITE_PATH=data/puyuh.db
 SEED_DEMO=true
 ```
 
+### Mengaktifkan pengiriman email
+
+Isi variabel berikut di `backend/.env`:
+
+``` env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=akun@gmail.com
+SMTP_PASS=app-password-16-karakter
+MAIL_FROM=akun@gmail.com
+APP_BASE_URL=https://domain-aplikasi-anda
+```
+
+Untuk Gmail: aktifkan verifikasi dua langkah, lalu buat **App Password**
+di <https://myaccount.google.com/apppasswords> dan pakai nilai 16 karakter
+tersebut sebagai `SMTP_PASS` (bukan kata sandi Gmail biasa).
+`APP_BASE_URL` adalah alamat frontend yang dipakai untuk menyusun tautan
+verifikasi.
+
+Bila variabel ini kosong, aplikasi tetap berjalan tetapi tidak mengirim
+email: pendaftaran baru otomatis terverifikasi dan tidak ada notifikasi
+warning lewat email.
+
 ### Menjalankan frontend
 
 ``` bash
@@ -681,12 +731,13 @@ npm run lint
 
 ## 15. Ringkasan API
 
-Semua endpoint (kecuali login dan health check) memerlukan header
+Semua endpoint (kecuali login, daftar, verifikasi email, kirim ulang
+verifikasi, dan health check) memerlukan header
 `Authorization: Bearer <token>`.
 
 | Area | Endpoint utama |
 | --- | --- |
-| Auth | `POST /api/v1/auth/login`, `GET /auth/me`, `PUT /auth/profile`, `PUT /auth/password` |
+| Auth | `POST /api/v1/auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `POST /auth/resend-verification`, `GET /auth/me`, `PUT /auth/profile`, `PUT /auth/password` |
 | Dashboard & laporan | `GET /api/v1/dashboard`, `GET /reports` |
 | Populasi | `GET/POST /api/v1/batches`, `GET/PUT/DELETE /batches/:id`, `GET /batches/:id/history`, `GET/POST /population-adjustments` |
 | Produksi | `GET/POST /api/v1/productions`, `GET /productions/summary`, `PUT/DELETE /productions/:id` |

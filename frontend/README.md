@@ -50,8 +50,12 @@ src/
 ## Autentikasi
 
 Token JWT disimpan di `localStorage` sebagai `puyuh_token` dan data
-pengguna sebagai `puyuh_user`. Route selain `/login` dilindungi oleh
-`ProtectedRoute`.
+pengguna sebagai `puyuh_user`. Route selain `/login`, `/daftar`, dan
+`/verifikasi-email` dilindungi oleh `ProtectedRoute`.
+
+Setelah mendaftar, pengguna diarahkan ke layar "cek email" bila
+verifikasi email aktif. Halaman `/verifikasi-email?token=...` memanggil
+endpoint verifikasi dan menampilkan hasilnya.
 
 ## Catatan
 

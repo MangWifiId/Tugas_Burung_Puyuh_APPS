@@ -24,6 +24,14 @@ type Config struct {
 	AdminPassword  string
 	SeedDemo       bool
 	AllowedOrigins []string
+
+	// Pengaturan pengiriman email (Gmail SMTP atau SMTP lain).
+	SMTPHost   string
+	SMTPPort   int
+	SMTPUser   string
+	SMTPPass   string
+	MailFrom   string
+	AppBaseURL string
 }
 
 func Load() *Config {
@@ -46,6 +54,15 @@ func Load() *Config {
 			env("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"),
 			",",
 		),
+		SMTPHost:   env("SMTP_HOST", ""),
+		SMTPPort:   envInt("SMTP_PORT", 587),
+		SMTPUser:   env("SMTP_USER", ""),
+		SMTPPass:   os.Getenv("SMTP_PASS"),
+		MailFrom:   env("MAIL_FROM", ""),
+		AppBaseURL: strings.TrimRight(env("APP_BASE_URL", "http://localhost:5173"), "/"),
+	}
+	if cfg.MailFrom == "" {
+		cfg.MailFrom = cfg.SMTPUser
 	}
 
 	// DATABASE_URL menandakan PostgreSQL (Neon). Tanpa itu, gunakan SQLite
@@ -66,6 +83,13 @@ func Load() *Config {
 }
 
 func (c *Config) IsProduction() bool { return c.Env == "production" }
+
+// MailEnabled menandakan konfigurasi SMTP lengkap sehingga aplikasi bisa
+// benar-benar mengirim email. Tanpa konfigurasi ini, verifikasi email otomatis
+// dilewati agar pemakaian lokal tidak terhambat.
+func (c *Config) MailEnabled() bool {
+	return c.SMTPHost != "" && c.SMTPPort > 0 && c.SMTPUser != "" && c.SMTPPass != "" && c.MailFrom != ""
+}
 
 func env(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {

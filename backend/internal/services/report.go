@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"manajemen-puyuh/backend/internal/mailer"
 	"manajemen-puyuh/backend/internal/models"
 )
 
@@ -351,10 +352,13 @@ func round2(value float64) float64 {
 }
 
 type DashboardService struct {
-	db *gorm.DB
+	db     *gorm.DB
+	mailer *mailer.Mailer
 }
 
-func NewDashboardService(db *gorm.DB) *DashboardService { return &DashboardService{db: db} }
+func NewDashboardService(db *gorm.DB, m *mailer.Mailer) *DashboardService {
+	return &DashboardService{db: db, mailer: m}
+}
 
 type DashboardData struct {
 	TodayEggs         int                    `json:"today_eggs"`
@@ -393,7 +397,7 @@ func (s *DashboardService) Load(from, to models.Date, groupBy string) (*Dashboar
 		return nil, err
 	}
 
-	warningService := NewWarningService(s.db)
+	warningService := NewWarningService(s.db, s.mailer)
 	if _, err := warningService.GenerateFor(today); err != nil {
 		return nil, err
 	}
@@ -414,11 +418,11 @@ func (s *DashboardService) Load(from, to models.Date, groupBy string) (*Dashboar
 		return nil, err
 	}
 
-	todayEggs, _, err := NewWarningService(s.db).productionTotal(today, today)
+	todayEggs, _, err := warningService.productionTotal(today, today)
 	if err != nil {
 		return nil, err
 	}
-	todayMortality, _, err := NewWarningService(s.db).mortalityTotal(today, today)
+	todayMortality, _, err := warningService.mortalityTotal(today, today)
 	if err != nil {
 		return nil, err
 	}

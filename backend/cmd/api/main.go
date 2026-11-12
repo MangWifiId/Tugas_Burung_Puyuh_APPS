@@ -16,6 +16,7 @@ import (
 	"manajemen-puyuh/backend/internal/config"
 	"manajemen-puyuh/backend/internal/database"
 	"manajemen-puyuh/backend/internal/handlers"
+	"manajemen-puyuh/backend/internal/mailer"
 	"manajemen-puyuh/backend/internal/models"
 	"manajemen-puyuh/backend/internal/routes"
 	"manajemen-puyuh/backend/internal/services"
@@ -40,10 +41,18 @@ func main() {
 		log.Fatalf("gagal menyiapkan data awal: %v", err)
 	}
 
+	mail := mailer.New(cfg)
+	if mail.Enabled() {
+		log.Printf("pengiriman email aktif melalui %s:%d", cfg.SMTPHost, cfg.SMTPPort)
+	} else {
+		log.Println("pengiriman email nonaktif (SMTP belum diisi); pendaftaran baru otomatis terverifikasi")
+	}
+
 	handler := &handlers.Handler{
-		Cfg:  cfg,
-		DB:   db,
-		Auth: services.NewAuthService(db, cfg),
+		Cfg:    cfg,
+		DB:     db,
+		Auth:   services.NewAuthService(db, cfg, mail),
+		Mailer: mail,
 	}
 
 	router := routes.New(handler)
@@ -57,7 +66,7 @@ func main() {
 	}
 
 	stopBackground := make(chan struct{})
-	go generateWarningsPeriodically(db, stopBackground)
+	go generateWarningsPeriodically(db, mail, stopBackground)
 
 	go func() {
 		log.Printf("API berjalan di http://localhost:%s (env=%s, db=%s)", cfg.Port, cfg.Env, cfg.DBDriver)
@@ -80,7 +89,7 @@ func main() {
 	log.Println("server berhenti")
 }
 
-func generateWarningsPeriodically(db *gorm.DB, stop <-chan struct{}) {
+func generateWarningsPeriodically(db *gorm.DB, mail *mailer.Mailer, stop <-chan struct{}) {
 	ticker := time.NewTicker(6 * time.Hour)
 	defer ticker.Stop()
 	for {
@@ -95,7 +104,7 @@ func generateWarningsPeriodically(db *gorm.DB, stop <-chan struct{}) {
 			}
 			for _, tenant := range tenants {
 				scoped := tenancy.WithTenant(db, context.Background(), tenant.ID)
-				if _, err := services.NewWarningService(scoped).GenerateFor(models.DateToday()); err != nil {
+				if _, err := services.NewWarningService(scoped, mail).GenerateFor(models.DateToday()); err != nil {
 					log.Printf("gagal membuat warning otomatis untuk kandang %d: %v", tenant.ID, err)
 				}
 			}

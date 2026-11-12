@@ -23,6 +23,8 @@ export interface User {
   name: string
   email: string
   role: string
+  email_verified: boolean
+  email_verified_at?: string | null
   last_login_at?: string | null
   created_at: string
   updated_at: string
@@ -344,4 +346,14 @@ export interface LoginResult {
   token: string
   expires_at: string
   user: User
+}
+
+export interface RegisterResult {
+  verification_required: boolean
+  email_sent: boolean
+  email: string
+  message: string
+  token?: string
+  expires_at?: string
+  user?: User
 }

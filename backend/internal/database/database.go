@@ -92,6 +92,11 @@ func poolerSafeDSN(raw string) string {
 }
 
 func Migrate(db *gorm.DB) error {
+	// Sebelum kolom verifikasi ada, semua akun lama dianggap sudah valid agar
+	// pengguna yang sudah terdaftar tidak terkunci setelah fitur ini aktif.
+	// Flag ini hanya bernilai true sekali, saat upgrade pertama.
+	markLegacyVerified := !db.Migrator().HasColumn(&models.User{}, "email_verified")
+
 	if err := db.AutoMigrate(
 		&models.Tenant{},
 		&models.User{},
@@ -111,7 +116,24 @@ func Migrate(db *gorm.DB) error {
 	); err != nil {
 		return err
 	}
+	if markLegacyVerified {
+		if err := verifyLegacyUsers(db); err != nil {
+			return fmt.Errorf("gagal menandai email pengguna lama: %w", err)
+		}
+	}
 	return migrateTenancy(db)
+}
+
+// verifyLegacyUsers menandai pengguna yang sudah ada sebelum fitur verifikasi
+// email sebagai terverifikasi. UpdateColumns dipakai agar UpdatedAt tidak berubah.
+func verifyLegacyUsers(db *gorm.DB) error {
+	now := time.Now()
+	return db.Model(&models.User{}).
+		Where("email_verified = ?", false).
+		UpdateColumns(map[string]any{
+			"email_verified":    true,
+			"email_verified_at": now,
+		}).Error
 }
 
 // tenantTables adalah tabel yang datanya dimiliki oleh satu kandang.

@@ -10,12 +10,14 @@ import {
   LineChart,
   LockKeyhole,
   Mail,
+  RefreshCw,
   ShieldCheck,
   TriangleAlert,
   Wheat,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { getErrorMessage } from '../services/api'
+import { api, getErrorMessage, getErrorStatus } from '../services/api'
+import type { ApiResponse } from '../types'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Field'
 import { usePageTitle } from '../components/ProtectedRoute'
@@ -36,6 +38,10 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resendMessage, setResendMessage] = useState<string | null>(null)
+  const [resendError, setResendError] = useState<string | null>(null)
 
   if (token) {
     return <Navigate to="/" replace />
@@ -45,14 +51,37 @@ export function LoginPage() {
     event.preventDefault()
     setLoading(true)
     setError(null)
+    setNeedsVerification(false)
+    setResendMessage(null)
+    setResendError(null)
     try {
       await login(email.trim(), password)
       const target = (location.state as { from?: string } | null)?.from ?? '/'
       navigate(target, { replace: true })
     } catch (err) {
+      setNeedsVerification(getErrorStatus(err) === 403)
       setError(getErrorMessage(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    setResending(true)
+    setResendMessage(null)
+    setResendError(null)
+    try {
+      const response = await api.post<ApiResponse<{ message: string }>>('/auth/resend-verification', {
+        email: email.trim(),
+      })
+      setResendMessage(
+        response.data.data?.message ??
+          'Jika email terdaftar dan belum diverifikasi, tautan verifikasi sudah dikirim ulang.',
+      )
+    } catch (err) {
+      setResendError(getErrorMessage(err))
+    } finally {
+      setResending(false)
     }
   }
 
@@ -201,6 +230,42 @@ export function LoginPage() {
               <div className="flex items-start gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-xs font-medium leading-relaxed text-rose-700">
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                 {error}
+              </div>
+            )}
+
+            {needsVerification && (
+              <div className="space-y-2">
+                {resendMessage && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3 text-xs font-medium leading-relaxed text-emerald-700">
+                    {resendMessage}
+                  </div>
+                )}
+                {resendError && (
+                  <div className="rounded-xl border border-rose-100 bg-rose-50 px-3.5 py-3 text-xs font-medium leading-relaxed text-rose-700">
+                    {resendError}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  loading={resending}
+                  onClick={handleResend}
+                  className="w-full"
+                >
+                  {!resending && <RefreshCw className="h-4 w-4" />}
+                  Kirim ulang email verifikasi
+                </Button>
+                <p className="text-center text-[11px] leading-relaxed text-stone-400">
+                  Atau buka halaman{' '}
+                  <a
+                    href="/verifikasi-email"
+                    className="font-semibold text-emerald-600 hover:text-emerald-500"
+                  >
+                    verifikasi email
+                  </a>
+                  .
+                </p>
               </div>
             )}
 

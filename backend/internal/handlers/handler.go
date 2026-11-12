@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"manajemen-puyuh/backend/internal/config"
+	"manajemen-puyuh/backend/internal/mailer"
 	"manajemen-puyuh/backend/internal/middleware"
 	"manajemen-puyuh/backend/internal/models"
 	"manajemen-puyuh/backend/internal/services"
@@ -16,9 +17,10 @@ import (
 )
 
 type Handler struct {
-	Cfg  *config.Config
-	DB   *gorm.DB
-	Auth *services.AuthService
+	Cfg    *config.Config
+	DB     *gorm.DB
+	Auth   *services.AuthService
+	Mailer *mailer.Mailer
 }
 
 // db mengembalikan koneksi yang sudah dikunci ke tenant user yang login.
@@ -49,13 +51,13 @@ func (h *Handler) Calendar(c *gin.Context) *services.CalendarService {
 	return services.NewCalendarService(h.db(c))
 }
 func (h *Handler) Warnings(c *gin.Context) *services.WarningService {
-	return services.NewWarningService(h.db(c))
+	return services.NewWarningService(h.db(c), h.Mailer)
 }
 func (h *Handler) Reports(c *gin.Context) *services.ReportService {
 	return services.NewReportService(h.db(c))
 }
 func (h *Handler) DashboardSvc(c *gin.Context) *services.DashboardService {
-	return services.NewDashboardService(h.db(c))
+	return services.NewDashboardService(h.db(c), h.Mailer)
 }
 func (h *Handler) Settings(c *gin.Context) *services.SettingService {
 	return services.NewSettingService(h.db(c))

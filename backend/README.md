@@ -61,6 +61,12 @@ Tabel dibuat otomatis melalui `AutoMigrate` saat start.
 | `ADMIN_PASSWORD` | `Admin123!` | Password admin awal |
 | `SEED_DEMO` | `false` | Membuat data contoh |
 | `CORS_ORIGINS` | `http://localhost:5173,...` | Origin frontend yang diizinkan |
+| `SMTP_HOST` | - | Server SMTP, mis. `smtp.gmail.com` |
+| `SMTP_PORT` | `587` | Port SMTP dengan STARTTLS |
+| `SMTP_USER` | - | Akun SMTP/pengirim |
+| `SMTP_PASS` | - | App Password Gmail (16 karakter) |
+| `MAIL_FROM` | `SMTP_USER` | Alamat pengirim pada header email |
+| `APP_BASE_URL` | `http://localhost:5173` | Alamat frontend untuk tautan verifikasi |
 
 ## Struktur
 
@@ -71,6 +77,7 @@ backend/
 │   ├── config/              # pembacaan environment
 │   ├── database/            # koneksi, migrasi, seed
 │   ├── handlers/            # HTTP handler
+│   ├── mailer/              # pengiriman email SMTP
 │   ├── middleware/          # JWT auth
 │   ├── models/              # model GORM
 │   ├── routes/              # definisi endpoint

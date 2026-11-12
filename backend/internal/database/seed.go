@@ -79,6 +79,10 @@ func seedAdmin(db *gorm.DB, cfg *config.Config, tenantID uint) error {
 		PasswordHash: hash,
 		Role:         "owner",
 	}
+	// Akun admin dibuat langsung oleh sistem, jadi tidak perlu verifikasi email.
+	now := time.Now()
+	admin.EmailVerified = true
+	admin.EmailVerifiedAt = &now
 	if err := db.Create(&admin).Error; err != nil {
 		return err
 	}

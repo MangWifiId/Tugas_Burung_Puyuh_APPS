@@ -35,6 +35,36 @@ func (h *Handler) Register(c *gin.Context) {
 	utils.Created(c, result)
 }
 
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	var input services.VerifyEmailInput
+	if !utils.BindJSON(c, &input) {
+		return
+	}
+	user, err := h.Auth.VerifyEmail(input.Token)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.OK(c, gin.H{
+		"message": "email berhasil diverifikasi",
+		"email":   user.Email,
+	})
+}
+
+func (h *Handler) ResendVerification(c *gin.Context) {
+	var input services.ResendVerificationInput
+	if !utils.BindJSON(c, &input) {
+		return
+	}
+	if err := h.Auth.ResendVerification(input.Email); err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.OK(c, gin.H{
+		"message": "jika email terdaftar dan belum diverifikasi, tautan verifikasi sudah dikirim ulang",
+	})
+}
+
 func (h *Handler) Me(c *gin.Context) {
 	user := currentUser(c)
 	if user == nil {

@@ -8,7 +8,7 @@ import {
 } from 'react'
 import type { ReactNode } from 'react'
 import { api, TOKEN_KEY } from '../services/api'
-import type { ApiResponse, LoginResult, User } from '../types'
+import type { ApiResponse, LoginResult, RegisterResult, User } from '../types'
 
 const USER_KEY = 'puyuh_user'
 
@@ -17,7 +17,12 @@ interface AuthContextValue {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<User>
-  register: (name: string, farmName: string, email: string, password: string) => Promise<User>
+  register: (
+    name: string,
+    farmName: string,
+    email: string,
+    password: string,
+  ) => Promise<RegisterResult>
   logout: () => Promise<void>
   updateUser: (user: User) => void
 }
@@ -81,18 +86,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(async (name: string, farmName: string, email: string, password: string) => {
-    const response = await api.post<ApiResponse<LoginResult>>('/auth/register', {
+    const response = await api.post<ApiResponse<RegisterResult>>('/auth/register', {
       name,
       farm_name: farmName,
       email,
       password,
     })
     const result = response.data.data
-    localStorage.setItem(TOKEN_KEY, result.token)
-    localStorage.setItem(USER_KEY, JSON.stringify(result.user))
-    setToken(result.token)
-    setUser(result.user)
-    return result.user
+    // Bila SMTP belum dikonfigurasi, backend mengembalikan token sehingga
+    // pengguna langsung masuk. Bila verifikasi wajib, sesi belum dibuat.
+    if (result.token && result.user) {
+      localStorage.setItem(TOKEN_KEY, result.token)
+      localStorage.setItem(USER_KEY, JSON.stringify(result.user))
+      setToken(result.token)
+      setUser(result.user)
+    }
+    return result
   }, [])
 
   const logout = useCallback(async () => {

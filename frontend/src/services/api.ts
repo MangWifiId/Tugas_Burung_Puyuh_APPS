@@ -33,6 +33,13 @@ api.interceptors.response.use(
   },
 )
 
+export function getErrorStatus(error: unknown): number | undefined {
+  if (axios.isAxiosError(error)) {
+    return error.response?.status
+  }
+  return undefined
+}
+
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as { error?: string; details?: unknown } | undefined

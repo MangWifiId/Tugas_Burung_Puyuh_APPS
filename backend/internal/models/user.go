@@ -17,6 +17,11 @@ type User struct {
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+
+	EmailVerified              bool       `gorm:"not null;default:false" json:"email_verified"`
+	EmailVerifiedAt            *time.Time `json:"email_verified_at,omitempty"`
+	EmailVerificationTokenHash string     `gorm:"size:64;index" json:"-"`
+	EmailVerificationExpiresAt *time.Time `json:"-"`
 }
 
 type ActivityLog struct {
