@@ -729,6 +729,55 @@ npm run build
 npm run lint
 ```
 
+### Deploy produksi satu domain
+
+Skema yang didukung: frontend dan backend berada di domain yang sama,
+dengan reverse proxy meneruskan `/api/` ke backend. Frontend memakai
+`/api/v1` relatif sehingga **tidak perlu** variabel `VITE_API_URL`.
+
+1.  Build backend:
+
+    ``` bash
+    cd backend
+    go build -trimpath -ldflags="-s -w" -o build/puyuh-api ./cmd/api
+    ```
+
+2.  Build frontend:
+
+    ``` bash
+    cd frontend
+    npm run build
+    ```
+
+3.  Salin hasil ke server:
+
+    -   `frontend/dist/` → mis. `/var/www/puyuh/dist`
+    -   `backend/build/puyuh-api` → mis. `/var/www/puyuh/backend/build`
+    -   `backend/.env` → `/var/www/puyuh/backend/.env`
+
+4.  Jalankan backend sebagai service. Contoh unit systemd tersedia di
+    `deploy/puyuh-api.service.example`.
+
+5.  Pasang reverse proxy. Contoh konfigurasi Nginx tersedia di
+    `deploy/nginx.conf.example` (sajikan `dist`, proxy `/api/` ke
+    `127.0.0.1:8080`, SPA fallback ke `index.html`).
+
+6.  Sesuaikan environment produksi:
+
+    ``` env
+    APP_ENV=production
+    APP_BASE_URL=https://domain-anda.com
+    CORS_ORIGINS=https://domain-anda.com
+    ```
+
+    Ganti `domain-anda.com` dengan domain sungguhan, lalu restart backend.
+
+7.  Aktifkan HTTPS (mis. `sudo certbot --nginx -d domain-anda.com`).
+
+Checklist sebelum go-live: `JWT_SECRET` sudah diganti, `ADMIN_EMAIL` dan
+`ADMIN_PASSWORD` tidak memakai nilai contoh, SMTP sudah diisi bila ingin
+verifikasi email aktif, dan `DATABASE_URL` mengarah ke database produksi.
+
 ## 15. Ringkasan API
 
 Semua endpoint (kecuali login, daftar, verifikasi email, kirim ulang

@@ -1,0 +1,26 @@
+# Contoh unit systemd untuk backend Manajemen Puyuh (Linux).
+#
+# Simpan sebagai /etc/systemd/system/puyuh-api.service lalu:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now puyuh-api
+#
+# Sesuaikan User, WorkingDirectory, dan ExecStart dengan lokasi sebenarnya.
+# Environment dibaca dari /var/www/puyuh/backend/.env (berisi SMTP, JWT, DATABASE_URL).
+
+[Unit]
+Description=Manajemen Puyuh API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/puyuh/backend
+ExecStart=/var/www/puyuh/backend/build/puyuh-api
+Restart=on-failure
+RestartSec=5
+# Batasi akses tulis hanya ke folder yang diperlukan.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
